@@ -1,7 +1,7 @@
 import { Collapsible } from '@kobalte/core/collapsible';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
-import { Link } from '@solidjs/meta';
+import { Link, Title } from '@solidjs/meta';
 import { A, cache, createAsync, useAction } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';

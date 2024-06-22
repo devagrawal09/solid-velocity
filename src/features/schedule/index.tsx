@@ -10,9 +10,10 @@ import {
   FaSolidChevronDown,
   FaSolidChevronRight
 } from 'solid-icons/fa';
-import { ErrorBoundary, JSX, ParentProps, createMemo, createSignal } from 'solid-js';
+import { JSX, ParentProps, createMemo, createSignal } from 'solid-js';
 import { getRequestAuth } from '~/auth';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
+import { Skeleton } from '~/components/ui/skeleton';
 import { storage } from '~/db';
 import { Session, getCachedData } from '~/features/sessionize';
 
@@ -60,7 +61,7 @@ export function Schedule() {
   const [getBookmark, toggle] = useBookmarks();
 
   return (
-    <ErrorBoundary fallback={(err, reset) => <div onClick={reset}>Error: {err.toString()}</div>}>
+    <>
       {timeSlots().map(([start, end, sessions], i) => {
         const status = isStartingSoonOrStarted(start, end);
         return sessions.length > 1 ? (
@@ -163,7 +164,7 @@ export function Schedule() {
           </>
         );
       })}
-    </ErrorBoundary>
+    </>
   );
 }
 
@@ -273,5 +274,21 @@ function TimeSlotComponent(props: {
       </CollapsibleTrigger>
       <CollapsibleContent>{props.content}</CollapsibleContent>
     </Collapsible>
+  );
+}
+
+export function ScheduleSkeleton() {
+  return (
+    <div>
+      <div class="px-3 py-3">
+        <Skeleton height={19} width={200} class=" bg-gray-500 my-1" radius={5} />
+        <Skeleton height={19} width={400} class=" bg-gray-500 my-1" radius={5} />
+      </div>
+      <div class="px-3 py-3">
+        <Skeleton height={19} width={200} class=" bg-gray-500 my-1" radius={5} />
+        <Skeleton height={19} width={400} class=" bg-gray-500 my-1" radius={5} />
+      </div>
+      <Skeleton height={40} class="bg-momentum my-1" radius={10} />
+    </div>
   );
 }

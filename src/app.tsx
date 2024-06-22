@@ -12,11 +12,13 @@ export default function App() {
     <Router
       root={props => (
         <MetaProvider>
-          <Title>SolidStart - Clerk</Title>
+          <Title>Momentum Developer Conference</Title>
           <ClerkProvider>
-            <Header />
-            <Suspense>{props.children}</Suspense>
-            <Toaster />
+            <Suspense>
+              <Header />
+              {props.children}
+              <Toaster />
+            </Suspense>
           </ClerkProvider>
         </MetaProvider>
       )}
