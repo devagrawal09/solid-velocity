@@ -1,6 +1,11 @@
-import { action, cache, redirect } from '@solidjs/router';
+import { action, cache, redirect, reload } from '@solidjs/router';
 import { getRequestAuth } from '~/auth';
-import { storage } from '~/db';
+import {
+  getSignedUpSpeakers,
+  getSpeakerAssignments,
+  updateSignedUpSpeakers,
+  updateSpeakerAssignments
+} from './db';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -20,9 +25,13 @@ export const getSignedUpSpeakersFn = cache(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const speakers = await storage.getItem<string[]>('s2s/speakers');
+  const speakers = await getSignedUpSpeakers();
 
-  return speakers || [];
+  if (speakers && speakers.includes(speakerId)) {
+    return speakers;
+  }
+
+  return [];
 }, 's2s/speakers');
 
 export const getSpeakerAssignmentsFn = cache(async () => {
@@ -30,23 +39,27 @@ export const getSpeakerAssignmentsFn = cache(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const assignments = await storage.getItem<string[]>(`s2s/${speakerId}`);
+  const assignments = await getSpeakerAssignments(speakerId);
 
   return assignments || [];
 }, 's2s/assignments');
+
+export const getSessionAssigneesFn = cache(async (sessionId: string) => {
+  'use server';
+}, 's2s/assignees');
 
 export const signUpSpeakerFn = action(async () => {
   'use server';
 
   const speakerId = await getRequestSpeakerFn();
 
-  const signedUpSpeakers = (await storage.getItem<string[]>('s2s/speakers')) || [];
+  const signedUpSpeakers = (await getSignedUpSpeakers()) || [];
 
   if (signedUpSpeakers && signedUpSpeakers.includes(speakerId)) {
     throw new Error('Speaker already signed up');
   }
 
-  await storage.setItem('s2s/speakers', [speakerId, ...signedUpSpeakers]);
+  await updateSignedUpSpeakers([speakerId, ...signedUpSpeakers]);
 });
 
 export const toggleAssignmentFn = action(async (sessionId: string) => {
@@ -54,14 +67,16 @@ export const toggleAssignmentFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const speakerAssignedSessions = (await storage.getItem<string[]>(`s2s/${speakerId}`)) || [];
+  const speakerAssignedSessions = (await getSpeakerAssignments(speakerId)) || [];
 
   if (speakerAssignedSessions.includes(sessionId)) {
-    return storage.setItem(
-      `s2s/${speakerId}`,
+    await updateSpeakerAssignments(
+      speakerId,
       speakerAssignedSessions.filter(s => s !== sessionId)
     );
   }
 
-  await storage.setItem(`s2s/${speakerId}`, [sessionId, ...speakerAssignedSessions]);
+  await updateSpeakerAssignments(speakerId, [sessionId, ...speakerAssignedSessions]);
+
+  return reload({ revalidate: getSignedUpSpeakersFn.key });
 });
