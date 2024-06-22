@@ -1,6 +1,8 @@
 import { Show, createMemo } from 'solid-js';
 import { clerkUI } from '~/directives/clerk';
 import { useClerk } from './ClerkProvider';
+import { A } from '@solidjs/router';
+import logoImg from '../logo.svg';
 
 export default function Header() {
   const { clerk, loaded } = useClerk();
@@ -14,15 +16,13 @@ export default function Header() {
   });
 
   return (
-    <header class="header">
-      <div>
-        <div style="flex-grow: 1;">
-          <p class="title">SolidStart + Clerk</p>
-        </div>
-        <Show when={isSignedIn()} fallback={<a href="/sign-in">Sign In</a>}>
-          <div use:clerkUI="UserButton"></div>
-        </Show>
-      </div>
+    <header class="flex justify-between items-center px-4">
+      <A href="/">
+        <img src={logoImg} alt="Momentum" width={64} height={64} />
+      </A>
+      <Show when={isSignedIn()} fallback={<a href="/sign-in">Sign In</a>}>
+        <div use:clerkUI="UserButton"></div>
+      </Show>
     </header>
   );
 }
