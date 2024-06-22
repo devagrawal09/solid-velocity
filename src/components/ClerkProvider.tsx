@@ -1,11 +1,10 @@
-import { createContext, createSignal, onMount, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
 import type { Accessor, Component, JSX } from 'solid-js';
-import type { Clerk } from '@clerk/clerk-js';
-import { useNavigate } from '@solidjs/router';
+import type { Clerk, ClerkOptions } from '@clerk/types';
+import { createAsync, useNavigate } from '@solidjs/router';
 
 export const ClerkContext = createContext<{
-  clerk: Accessor<Clerk | null>;
-  loaded: Accessor<boolean>;
+  clerk: Accessor<Clerk | undefined>;
 }>();
 
 interface Props {
@@ -18,24 +17,25 @@ if (!PUBLISHABLE_KEY) {
   throw new Error('Missing Publishable Key');
 }
 
+async function loadClerk(options: ClerkOptions) {
+  const { Clerk: ClerkMain } = await import('@clerk/clerk-js');
+  const instance = new ClerkMain(PUBLISHABLE_KEY);
+
+  await instance.load(options);
+  return instance;
+}
+
 export const ClerkProvider: Component<Props> = props => {
-  const [clerk, setClerk] = createSignal<Clerk | null>(null);
-  const [loaded, setLoaded] = createSignal(false);
   const navigate = useNavigate();
 
-  onMount(async () => {
-    const { Clerk: ClerkMain } = await import('@clerk/clerk-js');
-    const instance = new ClerkMain(PUBLISHABLE_KEY);
-    setClerk(instance);
-
-    await instance.load({
+  const clerk = createAsync(() =>
+    loadClerk({
       routerPush: (to: string) => navigate(to),
       routerReplace: (to: string) => navigate(to, { replace: true })
-    });
-    setLoaded(true);
-  });
+    })
+  );
 
-  return <ClerkContext.Provider value={{ clerk, loaded }}>{props.children}</ClerkContext.Provider>;
+  return <ClerkContext.Provider value={{ clerk }}>{props.children}</ClerkContext.Provider>;
 };
 
 export function useClerk() {

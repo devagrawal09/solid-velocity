@@ -5,4 +5,7 @@ declare global {
     orgMetadata: {};
     publicMetadata: { speakerId?: string };
   }
+  interface UserPublicMetadata {
+    speakerId?: string;
+  }
 }

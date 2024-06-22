@@ -4,12 +4,10 @@ import { useClerk } from '~/components/ClerkProvider';
 const components = ['SignIn', 'SignUp', 'UserButton'] as const;
 
 export function clerkUI(el: HTMLDivElement, component: () => (typeof components)[number]) {
-  const { clerk, loaded } = useClerk();
+  const { clerk } = useClerk();
 
   createEffect(() => {
-    if (loaded()) {
-      clerk()?.[`mount${component()}`](el);
-    }
+    clerk()?.[`mount${component()}`](el);
 
     onCleanup(() => {
       clerk()?.[`unmount${component()}`](el);

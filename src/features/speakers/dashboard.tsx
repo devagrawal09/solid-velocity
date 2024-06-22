@@ -1,7 +1,6 @@
 import { Collapsible } from '@kobalte/core/collapsible';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
-import { Link, Title } from '@solidjs/meta';
 import { A, cache, createAsync, useAction } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
@@ -13,11 +12,13 @@ import { CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsi
 import { showToast } from '~/components/ui/toast';
 import { Category, Session, getCachedData } from '~/features/sessionize';
 import {
+  getRequestSpeakerFn,
   getSignedUpSpeakersFn,
   getSpeakerAssignmentsFn,
   signUpSpeakerFn,
   toggleAssignmentFn
 } from './s2s-store';
+import { Skeleton } from '~/components/ui/skeleton';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -29,7 +30,7 @@ export const sessionizeData = cache(async () => {
 }, 'sessionize');
 
 export function SpeakerDashboard() {
-  const speakerId = () => 'user_2Ymw1sfhV4uOlUa7lvTfBott3Fo';
+  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn(), { initialValue: [] });
   const isSpeakerSignedUp = () => signedUpSpeakers().includes(speakerId());
 
@@ -113,9 +114,9 @@ export function SpeakerDashboard() {
                         >
                           <div class="flex gap-2">
                             <div class="grow flex flex-col gap-2">
-                              <Link href={`/session/${session.id}`}>
+                              <A href={`/session/${session.id}`}>
                                 <h3 class="text-sm hover:underline">{session.title}</h3>
-                              </Link>
+                              </A>
                               <p class="text-xs opacity-90">
                                 {data().rooms.find(room => room.id === session.roomId)?.name}
                               </p>
@@ -315,4 +316,15 @@ function useAssignment(sessionId: string) {
   }
 
   return { isAssigned: () => assignments().includes(sessionId), toggleAction };
+}
+
+export function ScheduleSkeleton() {
+  return (
+    <div>
+      <div class="pb-3 pt-1">
+        <Skeleton height={20} width={400} class=" bg-gray-500 my-1" radius={5} />
+      </div>
+      <Skeleton height={40} class="bg-momentum my-1" radius={10} />
+    </div>
+  );
 }
