@@ -200,7 +200,7 @@ const toggleBookmarkFn = action(async (sessionId: string) => {
 function useBookmarks() {
   const [bookmarks, setBookmarks] = makePersisted(
     createWritableMemo(createAsync(() => getBookmarksFn(), { initialValue: [] })),
-    { storage: localStorage, name: `bookmarks` }
+    { storage: typeof window !== 'undefined' ? window.localStorage : undefined, name: `bookmarks` }
   );
 
   const toggleBookmarkAction = useAction(toggleBookmarkFn);

@@ -1,6 +1,7 @@
 import { Title } from '@solidjs/meta';
 import { RouteDefinition } from '@solidjs/router';
-import { ErrorBoundary, ParentProps, Suspense } from 'solid-js';
+import { ErrorBoundary, ParentProps, Show, Suspense } from 'solid-js';
+import { useClerk } from '~/components/ClerkProvider';
 import { Button } from '~/components/ui/button';
 import { Schedule, ScheduleSkeleton, getBookmarksFn, sessionizeData } from '~/features/schedule';
 import { SpeakerLandingAlert } from '~/features/speakers';
@@ -13,10 +14,15 @@ export const route = {
 } satisfies RouteDefinition;
 
 export default function Home() {
+  const { clerk } = useClerk();
+  const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
+
   return (
     <main class="px-5">
       <Title>Schedule | Momentum Developer Conference</Title>
-      <SpeakerLandingAlert />
+      <Show when={speakerId()}>
+        <SpeakerLandingAlert />
+      </Show>
       <h1 class="text-4xl font-semibold my-4">Schedule</h1>
       <DefaultErrorBoundary>
         <Suspense fallback={<ScheduleSkeleton />}>

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'solid-js';
+import { createContext, createSignal, onMount, useContext } from 'solid-js';
 import type { Accessor, Component, JSX } from 'solid-js';
 import type { Clerk, ClerkOptions } from '@clerk/types';
 import { createAsync, useNavigate } from '@solidjs/router';
@@ -27,13 +27,15 @@ async function loadClerk(options: ClerkOptions) {
 
 export const ClerkProvider: Component<Props> = props => {
   const navigate = useNavigate();
+  const [clerk, setClerk] = createSignal<Clerk>();
 
-  const clerk = createAsync(() =>
-    loadClerk({
+  onMount(async () => {
+    const c = await loadClerk({
       routerPush: (to: string) => navigate(to),
       routerReplace: (to: string) => navigate(to, { replace: true })
-    })
-  );
+    });
+    setClerk(c);
+  });
 
   return <ClerkContext.Provider value={{ clerk }}>{props.children}</ClerkContext.Provider>;
 };

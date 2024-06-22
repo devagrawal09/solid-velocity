@@ -1,13 +1,15 @@
 import { makePersisted } from '@solid-primitives/storage';
 import { A } from '@solidjs/router';
-import { Show, createSignal } from 'solid-js';
+import { Show, createEffect, createSignal } from 'solid-js';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 
 export function SpeakerLandingAlert() {
   const [speakerVisited, setSpeakerVisited] = makePersisted(createSignal(false), {
-    storage: localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     name: `speakerVisitsed`
   });
+
+  createEffect(() => console.log({ speakerVisited: speakerVisited() }));
 
   return (
     <Show when={!speakerVisited()}>
