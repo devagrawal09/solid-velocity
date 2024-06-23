@@ -1,11 +1,14 @@
 import { action, cache, redirect, reload } from '@solidjs/router';
 import { getRequestAuth } from '~/auth';
 import {
+  assignSpeakerToSession,
+  getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
-  updateSignedUpSpeakers,
-  updateSpeakerAssignments
-} from './db';
+  signUpSpeaker,
+  unassignSpeakerFromSession,
+  removeSpeaker
+} from './store';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -46,6 +49,12 @@ export const getSpeakerAssignmentsFn = cache(async () => {
 
 export const getSessionAssigneesFn = cache(async (sessionId: string) => {
   'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  const assignees = await getSessionAssignees(sessionId);
+
+  return assignees || [];
 }, 's2s/assignees');
 
 export const signUpSpeakerFn = action(async () => {
@@ -53,30 +62,37 @@ export const signUpSpeakerFn = action(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const signedUpSpeakers = (await getSignedUpSpeakers()) || [];
+  const error = await signUpSpeaker(speakerId);
 
-  if (signedUpSpeakers && signedUpSpeakers.includes(speakerId)) {
-    throw new Error('Speaker already signed up');
-  }
-
-  await updateSignedUpSpeakers([speakerId, ...signedUpSpeakers]);
+  return error;
 });
 
-export const toggleAssignmentFn = action(async (sessionId: string) => {
+export const assignToSessionFn = action(async (sessionId: string) => {
   'use server';
 
   const speakerId = await getRequestSpeakerFn();
 
-  const speakerAssignedSessions = (await getSpeakerAssignments(speakerId)) || [];
+  const error = await assignSpeakerToSession(speakerId, sessionId);
 
-  if (speakerAssignedSessions.includes(sessionId)) {
-    await updateSpeakerAssignments(
-      speakerId,
-      speakerAssignedSessions.filter(s => s !== sessionId)
-    );
-  }
+  return error;
+});
 
-  await updateSpeakerAssignments(speakerId, [sessionId, ...speakerAssignedSessions]);
+export const unassignFromSessionFn = action(async (sessionId: string) => {
+  'use server';
 
-  return reload({ revalidate: getSignedUpSpeakersFn.key });
+  const speakerId = await getRequestSpeakerFn();
+
+  const error = await unassignSpeakerFromSession(speakerId, sessionId);
+
+  return error;
+});
+
+export const removeSpeakerFn = action(async () => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  const error = await removeSpeaker(speakerId);
+
+  return error;
 });
