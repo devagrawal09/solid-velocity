@@ -1,5 +1,5 @@
 import { Collapsible } from '@kobalte/core/collapsible';
-import { A, cache, createAsync, useAction } from '@solidjs/router';
+import { A, cache, createAsync, useAction, createAsyncStore } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -28,11 +28,11 @@ export const sessionizeData = cache(async () => {
 }, 'sessionize');
 
 export function SpeakerDashboard() {
-  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
-  const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn(), { initialValue: [] });
+  const speakerId = createAsyncStore(() => getRequestSpeakerFn(), { initialValue: '' });
+  const signedUpSpeakers = createAsyncStore(() => getSignedUpSpeakersFn(), { initialValue: [] });
   const isSpeakerSignedUp = () => signedUpSpeakers().includes(speakerId());
 
-  const data = createAsync(() => sessionizeData(), {
+  const data = createAsyncStore(() => sessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
 
@@ -146,7 +146,7 @@ export function SpeakerDashboard() {
 }
 
 function SessionComponent(props: ParentProps<{ session: Session }>) {
-  const data = createAsync(() => sessionizeData(), {
+  const data = createAsyncStore(() => sessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
 

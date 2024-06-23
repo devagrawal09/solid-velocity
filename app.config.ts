@@ -1,5 +1,4 @@
 import { defineConfig } from '@solidjs/start/config';
-import { plugins } from './postcss.config.cjs';
 import devtools from 'solid-devtools/vite';
 
 export default defineConfig({
@@ -7,7 +6,7 @@ export default defineConfig({
   server: {
     preset: 'vercel'
   },
-  ssr: false,
+  ssr: true,
   vite: {
     plugins: [
       devtools({

@@ -13,6 +13,7 @@ async function getSpeakerEvents() {
 async function publishSpeakerEvent(event: SpeakerEvent) {
   const events = await getSpeakerEvents();
   storage.setItem('s2s/events', [...events, event]);
+  return event;
 }
 
 export async function getSpeakerAssignments(speakerId: string) {
@@ -67,7 +68,7 @@ export async function signUpSpeaker(speakerId: string) {
   const signedUpSpeakers = await getSignedUpSpeakers();
   if (signedUpSpeakers.includes(speakerId)) return new Error('Speaker already signed up');
 
-  await publishSpeakerEvent({ type: 'speaker-signedup', speakerId });
+  return publishSpeakerEvent({ type: 'speaker-signedup', speakerId });
 }
 
 export async function assignSpeakerToSession(speakerId: string, sessionId: string) {
@@ -75,7 +76,7 @@ export async function assignSpeakerToSession(speakerId: string, sessionId: strin
   if (speakerAssignedSessions.includes(sessionId))
     return new Error('Speaker already assigned to session');
 
-  await publishSpeakerEvent({ type: 'session-assigned', speakerId, sessionId });
+  return publishSpeakerEvent({ type: 'session-assigned', speakerId, sessionId });
 }
 
 export async function unassignSpeakerFromSession(speakerId: string, sessionId: string) {
@@ -83,12 +84,12 @@ export async function unassignSpeakerFromSession(speakerId: string, sessionId: s
   if (!speakerAssignedSessions.includes(sessionId))
     return new Error('Speaker not assigned to session');
 
-  await publishSpeakerEvent({ type: 'session-unassigned', speakerId, sessionId });
+  return publishSpeakerEvent({ type: 'session-unassigned', speakerId, sessionId });
 }
 
 export async function removeSpeaker(speakerId: string) {
   const signedUpSpeakers = await getSignedUpSpeakers();
   if (!signedUpSpeakers.includes(speakerId)) return new Error('Speaker not signed up');
 
-  await publishSpeakerEvent({ type: 'speaker-removed', speakerId });
+  return publishSpeakerEvent({ type: 'speaker-removed', speakerId });
 }

@@ -62,9 +62,9 @@ export const signUpSpeakerFn = action(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const error = await signUpSpeaker(speakerId);
+  const result = await signUpSpeaker(speakerId);
 
-  return error;
+  return result;
 });
 
 export const assignToSessionFn = action(async (sessionId: string) => {
@@ -72,9 +72,9 @@ export const assignToSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const error = await assignSpeakerToSession(speakerId, sessionId);
+  const result = await assignSpeakerToSession(speakerId, sessionId);
 
-  return error;
+  return result;
 });
 
 export const unassignFromSessionFn = action(async (sessionId: string) => {
@@ -82,9 +82,9 @@ export const unassignFromSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const error = await unassignSpeakerFromSession(speakerId, sessionId);
+  const result = await unassignSpeakerFromSession(speakerId, sessionId);
 
-  return error;
+  return result;
 });
 
 export const removeSpeakerFn = action(async () => {
@@ -92,7 +92,7 @@ export const removeSpeakerFn = action(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const error = await removeSpeaker(speakerId);
+  const result = await removeSpeaker(speakerId);
 
-  return error;
+  return result;
 });

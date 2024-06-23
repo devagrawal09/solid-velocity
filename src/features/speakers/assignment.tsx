@@ -1,33 +1,27 @@
 import { createContextProvider } from '@solid-primitives/context';
-import { createWritableMemo } from '@solid-primitives/memo';
-import { makePersisted } from '@solid-primitives/storage';
-import { A, createAsync, useAction } from '@solidjs/router';
-import { Show } from 'solid-js';
+import { createLatest } from '@solid-primitives/memo';
+import { A, createAsyncStore, useAction } from '@solidjs/router';
+import { Accessor, Show } from 'solid-js';
 import { showToast } from '~/components/ui/toast';
 import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './s2s-store';
 import { Session } from '../sessionize';
 import { Button } from '~/components/ui/button';
+import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
 
 export function AssignmentComponent(props: { session: Session }) {
-  const { isAssigned, toggleAction } = useAssignment();
+  const { isAssigned, emitAssign, emitUnassign } = useAssignment();
 
   return (
-    <Show when={isAssigned()} fallback={<Unassigned assignAction={toggleAction} />}>
-      <Assigned sessionId={props.session.id} unassignAction={toggleAction} />
+    <Show when={isAssigned()} fallback={<Unassigned assignAction={emitAssign} />}>
+      <Assigned sessionId={props.session.id} unassignAction={emitUnassign} />
     </Show>
   );
 }
 
-function Assigned(props: { sessionId: string; unassignAction: () => {} }) {
+function Assigned(props: { sessionId: string; unassignAction: (args: any) => void }) {
   return (
-    <form
-      class="flex flex-col justify-between items-end"
-      onSubmit={e => {
-        e.preventDefault();
-        props.unassignAction();
-      }}
-    >
-      <Button type="submit" class="text-sm font-bold" variant="destructive">
+    <div class="flex flex-col justify-between items-end">
+      <Button onClick={props.unassignAction} class="text-sm font-bold" variant="destructive">
         Remove Assignment
       </Button>
       <A class="text-sm font-bold" href={`/s2s/${props.sessionId}`}>
@@ -35,82 +29,92 @@ function Assigned(props: { sessionId: string; unassignAction: () => {} }) {
           Submit Feedback
         </Button>
       </A>
-    </form>
+    </div>
   );
 }
 
-function Unassigned(props: { assignAction: () => {} }) {
+function Unassigned(props: { assignAction: (args: any) => void }) {
   return (
-    <form
-      class="flex flex-col"
-      onSubmit={e => {
-        e.preventDefault();
-        props.assignAction();
-      }}
-    >
-      <Button type="submit" variant="success" class="text-sm font-bold">
+    <div class="flex flex-col">
+      <Button onClick={props.assignAction} variant="success" class="text-sm font-bold">
         Assign to me
       </Button>
-    </form>
+    </div>
   );
 }
 
 export const [AssignmentProvider, useAssignment] = createContextProvider(
   (props: { session: Session }) => {
-    const [assignments, setAssignments] = makePersisted(
-      createWritableMemo(createAsync(() => getSpeakerAssignmentsFn(), { initialValue: [] })),
-      {
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        name: `assignments`
-      }
+    console.log(`AssignmentProvider`);
+    const [onAssignClick, emitAssign] = createEvent();
+    const [onUnassignClick, emitUnassign] = createEvent();
+
+    const onAssign = onAssignClick(() => props.session.id);
+    const onUnassign = onUnassignClick(() => props.session.id);
+
+    const onAssignmentsChange = createTopic<string[]>(
+      onAssign(sessionId => [...assignments(), sessionId]),
+      onUnassign(sessionId => assignments().filter(id => id !== sessionId))
     );
 
-    const isAssigned = () => assignments().includes(props.session.id);
+    const localAssignments = createSubject(onAssignmentsChange, []);
+    const serverAssignments = createAsyncStore(() => getSpeakerAssignmentsFn(), {
+      initialValue: []
+    });
+
+    const assignments = createLatest([localAssignments, serverAssignments]) as Accessor<string[]>;
+
+    const isAssigned = () => assignments()?.includes(props.session.id);
 
     const assignToSession = useAction(assignToSessionFn);
     const unassignFromSession = useAction(unassignFromSessionFn);
 
-    async function toggleAction() {
-      if (isAssigned()) {
-        setAssignments(b => b.filter(id => id !== props.session.id));
-        const error = await unassignFromSession(props.session.id);
+    const onAssignResult = onAssign(assignToSession);
+    const onUnassignResult = onUnassign(unassignFromSession);
 
-        if (error)
-          showToast({
-            title: error.message,
-            variant: 'error'
-          });
-        else
-          showToast({
-            title: `${props.session.title.substring(0, 30)}... removed from Assignments`,
-            variant: 'destructive',
-            duration: 2000
-          });
-      } else {
-        setAssignments(b => [...b, props.session.id]);
-        const error = await assignToSession(props.session.id);
+    const onServerResult = createTopic(onAssignResult, onUnassignResult);
 
-        if (error)
-          showToast({
-            title: error.message,
-            variant: 'error'
-          });
-        else
-          showToast({
-            title: `${props.session.title.substring(0, 30)}... added to Assignments`,
-            variant: 'success',
-            duration: 2000
-          });
-      }
-    }
+    const onServerError = onServerResult(res => {
+      return res instanceof Error ? res : null;
+    });
 
-    return { isAssigned, toggleAction };
+    const onServerSuccess = onServerResult(res => {
+      return res instanceof Error ? null : res;
+    });
+
+    createListener(onServerError, err => {
+      showToast({
+        title: err.message,
+        variant: 'error'
+      });
+    });
+
+    createListener(onServerSuccess, event => {
+      if (event.type === 'session-assigned')
+        showToast({
+          title: `${props.session.title.substring(0, 30)}... added to Assignments`,
+          variant: 'success',
+          duration: 2000
+        });
+
+      if (event.type === 'session-unassigned')
+        showToast({
+          title: `${props.session.title.substring(0, 30)}... removed from Assignments`,
+          variant: 'destructive',
+          duration: 2000
+        });
+    });
+
+    return { isAssigned, emitAssign, emitUnassign };
   },
   {
     isAssigned: () => {
       throw new Error(`useAssignment was used outside <AssignmentProvider>`);
     },
-    toggleAction: () => {
+    emitAssign: () => {
+      throw new Error(`useAssignment was used outside <AssignmentProvider>`);
+    },
+    emitUnassign: () => {
       throw new Error(`useAssignment was used outside <AssignmentProvider>`);
     }
   }
