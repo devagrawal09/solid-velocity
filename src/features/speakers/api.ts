@@ -1,4 +1,4 @@
-import { action, cache, redirect, reload } from '@solidjs/router';
+import { action, cache, redirect } from '@solidjs/router';
 import { getRequestAuth } from '~/auth';
 import {
   assignSpeakerToSession,
@@ -72,7 +72,7 @@ export const assignToSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await assignSpeakerToSession(speakerId, sessionId);
+  const result = await assignSpeakerToSession({ speakerId, sessionId });
 
   return result;
 });
@@ -82,7 +82,7 @@ export const unassignFromSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await unassignSpeakerFromSession(speakerId, sessionId);
+  const result = await unassignSpeakerFromSession({ speakerId, sessionId });
 
   return result;
 });

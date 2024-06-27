@@ -1,10 +1,10 @@
 import { Collapsible } from '@kobalte/core/collapsible';
-import { A, cache, createAsync, useAction, createAsyncStore } from '@solidjs/router';
+import { A, cache, useAction, createAsyncStore, createAsync } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { For, JSX, ParentProps, Show, createEffect, createMemo, createSignal } from 'solid-js';
+import { For, ParentProps, Show, createMemo, createSignal } from 'solid-js';
 import { CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Category, Session, getCachedData } from '~/features/sessionize';
@@ -13,10 +13,12 @@ import {
   getSignedUpSpeakersFn,
   removeSpeakerFn,
   signUpSpeakerFn
-} from './s2s-store';
+} from './api';
 import { AssignmentComponent, AssignmentProvider, useAssignment } from './assignment';
 import { Button } from '~/components/ui/button';
 import { MySessionComponent } from './my-session';
+import { createEvent, createListener } from '~/lib/events';
+import { showToast } from '~/components/ui/toast';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -28,16 +30,14 @@ export const sessionizeData = cache(async () => {
 }, 'sessionize');
 
 export function SpeakerDashboard() {
-  const speakerId = createAsyncStore(() => getRequestSpeakerFn(), { initialValue: '' });
-  const signedUpSpeakers = createAsyncStore(() => getSignedUpSpeakersFn(), { initialValue: [] });
-  const isSpeakerSignedUp = () => signedUpSpeakers().includes(speakerId());
+  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
+  const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
+  const data = createAsync(() => sessionizeData());
 
-  const data = createAsyncStore(() => sessionizeData(), {
-    initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
-  });
+  const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
 
   const timeSlots = () =>
-    data().sessions.reduce<TimeSlot[]>((acc, session) => {
+    data()?.sessions.reduce<TimeSlot[]>((acc, session) => {
       const slot = acc.find(([start, end]) => start === session.startsAt && end === session.endsAt);
 
       if (slot) {
@@ -49,11 +49,7 @@ export function SpeakerDashboard() {
       return acc;
     }, []);
 
-  const mySession = () => data().sessions.find(session => session.speakers.includes(speakerId()));
-
-  createEffect(() => console.log(signedUpSpeakers()));
-
-  const removeSpeakerAction = useAction(removeSpeakerFn);
+  const mySession = () => data()?.sessions.find(session => session.speakers.includes(speakerId()));
 
   return (
     <>
@@ -65,27 +61,11 @@ export function SpeakerDashboard() {
           </>
         )}
       </Show>
-      <Show when={isSpeakerSignedUp()} fallback={<S2SNotSignedUp />}>
-        <Show
-          when={signedUpSpeakers().length > 1}
-          fallback={
-            <p class="my-4">
-              Looks like no one else has signed up for the speaker-to-speaker feedback program yet.
-              <br />
-              Check back later, or encourage your speaker friends to participate!
-            </p>
-          }
-        >
+      <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
+        <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
           <div class="flex items-center">
             <p class="text-lg my-4 grow">Sessions available for S2S</p>
-            <Button
-              class="text-xs font-bold"
-              size="xs"
-              variant="destructive"
-              onClick={removeSpeakerAction}
-            >
-              Opt-out of S2S
-            </Button>
+            <OptOut />
           </div>
           <For each={timeSlots()}>
             {([start, end, sessions]) => {
@@ -96,28 +76,37 @@ export function SpeakerDashboard() {
                   // filter out my session
                   .filter(session => !session.speakers.includes(speakerId()))
                   // filter in sessions by signed up speakers
-                  .filter(s => signedUpSpeakers().find(speaker => s.speakers.includes(speaker)));
+                  .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)));
+
+              const [open, setOpen] = createSignal(true);
 
               return (
                 <Show when={signedUpSessions().length > 0}>
-                  <TimeSlotComponent
-                    header={
-                      <>
-                        <h2>
-                          {format(new Date(start), 'h:mm a')} to {format(new Date(end), 'h:mm a')}
-                        </h2>{' '}
-                        <span class="text-sm opacity-80">
-                          {status === 'soon'
-                            ? '(Starting soon)'
-                            : status === 'started'
-                              ? '(In progress)'
-                              : status === 'ended'
-                                ? '(Ended)'
-                                : null}
-                        </span>
-                      </>
-                    }
-                    content={
+                  <Collapsible open={open()} onOpenChange={setOpen}>
+                    <CollapsibleTrigger
+                      class={clsx(
+                        'py-2 px-4 w-full my-1 rounded-xl flex gap-2 items-center',
+                        !status && 'bg-momentum',
+                        status === 'soon' && 'bg-green-700',
+                        status === 'started' && 'bg-yellow-700',
+                        status === 'ended' && 'bg-gray-700'
+                      )}
+                    >
+                      {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+                      <h2>
+                        {format(new Date(start), 'h:mm a')} to {format(new Date(end), 'h:mm a')}
+                      </h2>
+                      <span class="text-sm opacity-80">
+                        {status === 'soon'
+                          ? '(Starting soon)'
+                          : status === 'started'
+                            ? '(In progress)'
+                            : status === 'ended'
+                              ? '(Ended)'
+                              : null}
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
                       <For each={signedUpSessions()}>
                         {session => (
                           <AssignmentProvider session={session}>
@@ -125,16 +114,8 @@ export function SpeakerDashboard() {
                           </AssignmentProvider>
                         )}
                       </For>
-                    }
-                    status={status}
-                    class={clsx(
-                      'py-2 px-4 w-full my-1 rounded-xl flex gap-2 items-center',
-                      !status && 'bg-momentum',
-                      status === 'soon' && 'bg-green-700',
-                      status === 'started' && 'bg-yellow-700',
-                      status === 'ended' && 'bg-gray-700'
-                    )}
-                  />
+                    </CollapsibleContent>
+                  </Collapsible>
                 </Show>
               );
             }}
@@ -142,6 +123,97 @@ export function SpeakerDashboard() {
         </Show>
       </Show>
     </>
+  );
+}
+
+function OptOut() {
+  const [onOptOut, emitOptOut] = createEvent();
+  const removeSpeakerAction = useAction(removeSpeakerFn);
+  const onOptOutResult = onOptOut(removeSpeakerAction);
+
+  createListener(onOptOutResult, async result => {
+    const res = await result;
+
+    if (res instanceof Error) {
+      return showToast({
+        title: res.message,
+        variant: 'error',
+        duration: 2000
+      });
+    }
+
+    if (res.find(e => e.type === 'speaker-removed')) {
+      showToast({
+        title: (
+          <>
+            You have <strong>opted out</strong> of S2S.
+          </>
+        ),
+        variant: 'warning',
+        duration: 2000
+      });
+    }
+  });
+
+  return (
+    <Button class="text-xs font-bold" size="xs" variant="destructive" onClick={emitOptOut}>
+      Opt-out of S2S
+    </Button>
+  );
+}
+
+function OptIn() {
+  const [onOptIn, emitOptIn] = createEvent();
+  const signUpSpeakerAction = useAction(signUpSpeakerFn);
+  const onOptInResult = onOptIn(signUpSpeakerAction);
+
+  createListener(onOptInResult, async result => {
+    const res = await result;
+
+    if (res instanceof Error) {
+      return showToast({
+        title: res.message,
+        variant: 'error',
+        duration: 2000
+      });
+    }
+
+    if (res.find(e => e.type === 'speaker-signedup')) {
+      showToast({
+        title: (
+          <>
+            You have <strong>opted in</strong> to S2S.
+          </>
+        ),
+        variant: 'success',
+        duration: 2000
+      });
+    }
+  });
+
+  return (
+    <>
+      <p class="text-lg my-4">Speaker-to-speaker Feedback Program</p>
+      <p class="my-4">Placeholder info</p>
+
+      <button
+        type="submit"
+        class="text-white bg-momentum rounded-xl px-4 py-2 hover:bg-opacity-70"
+        onClick={emitOptIn}
+      >
+        I wanna participate!
+      </button>
+    </>
+  );
+}
+
+function NoSpeakers() {
+  return (
+    <p class="my-4">
+      Looks like no one else has signed up for the speaker-to-speaker feedback program yet.
+      <br />
+      Check back later, or encourage your speaker friends to participate!
+    </p>
   );
 }
 
@@ -217,29 +289,6 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
   );
 }
 
-function S2SNotSignedUp() {
-  const signUpSpeakerAction = useAction(signUpSpeakerFn);
-  return (
-    <>
-      <p class="text-lg my-4">Speaker-to-speaker Feedback Program</p>
-      <p class="my-4">Placeholder info</p>
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          signUpSpeakerAction();
-        }}
-      >
-        <button
-          type="submit"
-          class="text-white bg-momentum rounded-xl px-4 py-2 hover:bg-opacity-70"
-        >
-          I wanna participate!
-        </button>
-      </form>
-    </>
-  );
-}
-
 function categoriesForSession(
   category: Category,
   session: Session
@@ -264,25 +313,6 @@ function isStartingSoonOrStarted(startsAt: string, endsAt: string) {
   if (endDiff < 0) return 'ended';
   if (startDiff < 20 && startDiff >= 0) return 'soon';
   if (endDiff < 50) return 'started';
-}
-
-function TimeSlotComponent(props: {
-  header: JSX.Element;
-  content: JSX.Element;
-  status?: 'soon' | 'started' | 'ended';
-  class?: string;
-}) {
-  const [open, setOpen] = createSignal(true);
-
-  return (
-    <Collapsible open={open()} onOpenChange={setOpen}>
-      <CollapsibleTrigger class={props.class}>
-        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
-        {props.header}
-      </CollapsibleTrigger>
-      <CollapsibleContent>{props.content}</CollapsibleContent>
-    </Collapsible>
-  );
 }
 
 export function ScheduleSkeleton() {

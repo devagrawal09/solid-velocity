@@ -1,20 +1,21 @@
-import { createAsync, A } from '@solidjs/router';
+import { createAsync, createAsyncStore, A } from '@solidjs/router';
 import clsx from 'clsx';
 import { ParentProps, createMemo, For, Show } from 'solid-js';
 import { sessionizeData } from '../schedule';
-import { getSessionAssigneesFn } from './s2s-store';
+import { getRequestSpeakerFn, getSessionAssigneesFn, getSignedUpSpeakersFn } from './api';
 import { Category, Session } from '../sessionize';
 
 export function MySessionComponent(props: ParentProps<{ session: Session }>) {
-  const data = createAsync(() => sessionizeData(), {
-    initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
-  });
-
+  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
+  const data = createAsyncStore(() => sessionizeData());
+  const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
   const assigneeIds = createAsync(() => getSessionAssigneesFn(props.session.id));
 
   const assignees = createMemo(() =>
-    assigneeIds()?.map(assigneeId => data().speakers.find(speaker => speaker.id === assigneeId))
+    assigneeIds()?.map(assigneeId => data()?.speakers.find(speaker => speaker.id === assigneeId))
   );
+
+  const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
 
   return (
     <div class={clsx('border rounded-xl p-3 my-2 border-gray-700')}>
@@ -26,14 +27,14 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
                 <h3 class="text-sm hover:underline">{props.session.title}</h3>
               </A>
               <p class="text-xs opacity-90">
-                {data().rooms.find(room => room.id === props.session.roomId)?.name}
+                {data()?.rooms.find(room => room.id === props.session.roomId)?.name}
               </p>
             </div>
           </div>
           <For each={props.session.speakers}>
             {speakerId => {
               const speaker = createMemo(() =>
-                data().speakers.find(speaker => speaker.id === speakerId)
+                data()?.speakers.find(speaker => speaker.id === speakerId)
               );
 
               return (
@@ -51,7 +52,7 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
             }}
           </For>
           <div class="flex flex-wrap gap-2">
-            <For each={data().categories}>
+            <For each={data()?.categories}>
               {category => (
                 <For each={categoriesForSession(category, props.session)}>
                   {item => (
@@ -71,25 +72,27 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
           </div>
         </div>
         <div class="flex flex-col gap-1 items-end">
-          <p class="font-bold">Assigned Reviewers</p>
-          <Show
-            when={assignees()?.length}
-            fallback={<p class="text-sm opacity-75">No reviewers assigned yet</p>}
-          >
-            <For each={assignees()}>
-              {assignee => (
-                <div class="flex items-center gap-2 px-1 py-1 text-sm">
-                  <img
-                    src={assignee?.profilePicture}
-                    alt={assignee?.fullName}
-                    class="rounded-full"
-                    width={24}
-                    height={24}
-                  />
-                  {assignee?.fullName}
-                </div>
-              )}
-            </For>
+          <Show when={isSpeakerSignedUp()}>
+            <p class="font-bold">Assigned Reviewers</p>
+            <Show
+              when={assignees()?.length}
+              fallback={<p class="text-sm opacity-75">No reviewers assigned yet</p>}
+            >
+              <For each={assignees()}>
+                {assignee => (
+                  <div class="flex items-center gap-2 px-1 py-1 text-sm">
+                    <img
+                      src={assignee?.profilePicture}
+                      alt={assignee?.fullName}
+                      class="rounded-full"
+                      width={24}
+                      height={24}
+                    />
+                    {assignee?.fullName}
+                  </div>
+                )}
+              </For>
+            </Show>
           </Show>
         </div>
       </div>

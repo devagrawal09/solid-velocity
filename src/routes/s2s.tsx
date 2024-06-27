@@ -2,7 +2,7 @@ import { Title } from '@solidjs/meta';
 import { RouteDefinition } from '@solidjs/router';
 import { Suspense } from 'solid-js';
 import { ScheduleSkeleton, SpeakerDashboard, sessionizeData } from '~/features/speakers/dashboard';
-import { getRequestSpeakerFn, getSignedUpSpeakersFn } from '~/features/speakers/s2s-store';
+import { getRequestSpeakerFn, getSignedUpSpeakersFn } from '~/features/speakers/api';
 
 export const route = {
   load() {

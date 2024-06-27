@@ -3,7 +3,7 @@ import { createLatest } from '@solid-primitives/memo';
 import { A, createAsyncStore, useAction } from '@solidjs/router';
 import { Accessor, Show } from 'solid-js';
 import { showToast } from '~/components/ui/toast';
-import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './s2s-store';
+import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './api';
 import { Session } from '../sessionize';
 import { Button } from '~/components/ui/button';
 import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
@@ -12,16 +12,16 @@ export function AssignmentComponent(props: { session: Session }) {
   const { isAssigned, emitAssign, emitUnassign } = useAssignment();
 
   return (
-    <Show when={isAssigned()} fallback={<Unassigned assignAction={emitAssign} />}>
-      <Assigned sessionId={props.session.id} unassignAction={emitUnassign} />
+    <Show when={isAssigned()} fallback={<Unassigned onAssign={emitAssign} />}>
+      <Assigned sessionId={props.session.id} onUnassign={emitUnassign} />
     </Show>
   );
 }
 
-function Assigned(props: { sessionId: string; unassignAction: (args: any) => void }) {
+function Assigned(props: { sessionId: string; onUnassign: (args: any) => void }) {
   return (
     <div class="flex flex-col justify-between items-end">
-      <Button onClick={props.unassignAction} class="text-sm font-bold" variant="destructive">
+      <Button onClick={props.onUnassign} class="text-sm font-bold" variant="destructive">
         Remove Assignment
       </Button>
       <A class="text-sm font-bold" href={`/s2s/${props.sessionId}`}>
@@ -33,10 +33,10 @@ function Assigned(props: { sessionId: string; unassignAction: (args: any) => voi
   );
 }
 
-function Unassigned(props: { assignAction: (args: any) => void }) {
+function Unassigned(props: { onAssign: (args: any) => void }) {
   return (
     <div class="flex flex-col">
-      <Button onClick={props.assignAction} variant="success" class="text-sm font-bold">
+      <Button onClick={props.onAssign} variant="success" class="text-sm font-bold">
         Assign to me
       </Button>
     </div>
@@ -46,6 +46,7 @@ function Unassigned(props: { assignAction: (args: any) => void }) {
 export const [AssignmentProvider, useAssignment] = createContextProvider(
   (props: { session: Session }) => {
     console.log(`AssignmentProvider`);
+
     const [onAssignClick, emitAssign] = createEvent();
     const [onUnassignClick, emitUnassign] = createEvent();
 
@@ -72,33 +73,28 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
     const onAssignResult = onAssign(assignToSession);
     const onUnassignResult = onUnassign(unassignFromSession);
 
-    const onServerResult = createTopic(onAssignResult, onUnassignResult);
+    const onToggleResult = createTopic(onAssignResult, onUnassignResult);
 
-    const onServerError = onServerResult(res => {
-      return res instanceof Error ? res : null;
-    });
+    createListener(onToggleResult, async result => {
+      const events = await result;
 
-    const onServerSuccess = onServerResult(res => {
-      return res instanceof Error ? null : res;
-    });
+      if (events instanceof Error) {
+        return showToast({
+          title: events.message,
+          variant: 'error',
+          duration: 2000
+        });
+      }
 
-    createListener(onServerError, err => {
-      showToast({
-        title: err.message,
-        variant: 'error'
-      });
-    });
-
-    createListener(onServerSuccess, event => {
-      if (event.type === 'session-assigned')
-        showToast({
+      if (events.find(e => e.type === 'session-assigned'))
+        return showToast({
           title: `${props.session.title.substring(0, 30)}... added to Assignments`,
           variant: 'success',
           duration: 2000
         });
 
-      if (event.type === 'session-unassigned')
-        showToast({
+      if (events.find(e => e.type === 'session-unassigned'))
+        return showToast({
           title: `${props.session.title.substring(0, 30)}... removed from Assignments`,
           variant: 'destructive',
           duration: 2000

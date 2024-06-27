@@ -1,6 +1,6 @@
 import { makePersisted } from '@solid-primitives/storage';
 import { A } from '@solidjs/router';
-import { Show, createEffect, createSignal } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 
 export function SpeakerLandingAlert() {
@@ -9,8 +9,6 @@ export function SpeakerLandingAlert() {
     name: `speakerVisitsed`
   });
 
-  createEffect(() => console.log({ speakerVisited: speakerVisited() }));
-
   return (
     <Show when={!speakerVisited()}>
       <Alert class="rounded border-white border-opacity-30 flex flex-col gap-1">
@@ -18,9 +16,7 @@ export function SpeakerLandingAlert() {
         <AlertDescription>
           You can view{' '}
           <A
-            onClick={() => {
-              setSpeakerVisited(true);
-            }}
+            onClick={() => setSpeakerVisited(true)}
             href="/s2s"
             class="underline text-gray-500 hover:text-gray-900"
           >
