@@ -53,76 +53,75 @@ export function SpeakerDashboard() {
 
   return (
     <>
-      <Show when={mySession()}>
-        {session => (
-          <>
-            <p class="text-lg my-4">Your Session</p>
-            <MySessionComponent session={session()} />
-          </>
-        )}
-      </Show>
+      <Show when={mySession()}>{session => <MySessionComponent session={session()} />}</Show>
       <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
         <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
           <div class="flex items-center">
             <p class="text-lg my-4 grow">Sessions available for S2S</p>
             <OptOut />
           </div>
-          <For each={timeSlots()}>
-            {([start, end, sessions]) => {
-              const status = isStartingSoonOrStarted(start, end);
-
-              const signedUpSessions = () =>
-                sessions
-                  // filter out my session
-                  .filter(session => !session.speakers.includes(speakerId()))
-                  // filter in sessions by signed up speakers
-                  .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)));
-
-              const [open, setOpen] = createSignal(true);
-
-              return (
-                <Show when={signedUpSessions().length > 0}>
-                  <Collapsible open={open()} onOpenChange={setOpen}>
-                    <CollapsibleTrigger
-                      class={clsx(
-                        'py-2 px-4 w-full my-1 rounded-xl flex gap-2 items-center',
-                        !status && 'bg-momentum',
-                        status === 'soon' && 'bg-green-700',
-                        status === 'started' && 'bg-yellow-700',
-                        status === 'ended' && 'bg-gray-700'
-                      )}
-                    >
-                      {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
-                      <h2>
-                        {format(new Date(start), 'h:mm a')} to {format(new Date(end), 'h:mm a')}
-                      </h2>
-                      <span class="text-sm opacity-80">
-                        {status === 'soon'
-                          ? '(Starting soon)'
-                          : status === 'started'
-                            ? '(In progress)'
-                            : status === 'ended'
-                              ? '(Ended)'
-                              : null}
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <For each={signedUpSessions()}>
-                        {session => (
-                          <AssignmentProvider session={session}>
-                            <SessionComponent session={session} />
-                          </AssignmentProvider>
-                        )}
-                      </For>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </Show>
-              );
-            }}
-          </For>
+          <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
         </Show>
       </Show>
     </>
+  );
+}
+
+function TimeSlotComponent(props: { slot: TimeSlot }) {
+  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
+  const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
+
+  const start = () => props.slot[0];
+  const end = () => props.slot[1];
+  const sessions = () => props.slot[2];
+  const status = () => isStartingSoonOrStarted(start(), end());
+
+  const signedUpSessions = () =>
+    sessions()
+      // filter out my session
+      .filter(session => !session.speakers.includes(speakerId()))
+      // filter in sessions by signed up speakers
+      .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)));
+
+  const [open, setOpen] = createSignal(true);
+
+  return (
+    <Show when={signedUpSessions().length > 0}>
+      <Collapsible open={open()} onOpenChange={setOpen}>
+        <CollapsibleTrigger
+          class={clsx(
+            'py-2 px-4 w-full my-1 rounded-xl flex gap-2 items-center',
+            !status() && 'bg-momentum',
+            status() === 'soon' && 'bg-green-700',
+            status() === 'started' && 'bg-yellow-700',
+            status() === 'ended' && 'bg-gray-700'
+          )}
+        >
+          {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          <h2>
+            {format(new Date(start()), 'h:mm a')} to {format(new Date(end()), 'h:mm a')}
+          </h2>
+          <span class="text-sm opacity-80">
+            {status() === 'soon'
+              ? '(Starting soon)'
+              : status() === 'started'
+                ? '(In progress)'
+                : status() === 'ended'
+                  ? '(Ended)'
+                  : null}
+          </span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <For each={signedUpSessions()}>
+            {session => (
+              <AssignmentProvider session={session}>
+                <SessionComponent session={session} />
+              </AssignmentProvider>
+            )}
+          </For>
+        </CollapsibleContent>
+      </Collapsible>
+    </Show>
   );
 }
 
