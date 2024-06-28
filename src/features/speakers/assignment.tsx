@@ -1,6 +1,6 @@
 import { createContextProvider } from '@solid-primitives/context';
 import { createLatest } from '@solid-primitives/memo';
-import { A, createAsyncStore, useAction } from '@solidjs/router';
+import { A, createAsync, useAction } from '@solidjs/router';
 import { Accessor, Show } from 'solid-js';
 import { showToast } from '~/components/ui/toast';
 import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './api';
@@ -59,7 +59,7 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
     );
 
     const localAssignments = createSubject(onAssignmentsChange, []);
-    const serverAssignments = createAsyncStore(() => getSpeakerAssignmentsFn(), {
+    const serverAssignments = createAsync(() => getSpeakerAssignmentsFn(), {
       initialValue: []
     });
 

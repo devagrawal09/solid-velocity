@@ -1,5 +1,5 @@
 import { Collapsible } from '@kobalte/core/collapsible';
-import { A, cache, useAction, createAsyncStore, createAsync } from '@solidjs/router';
+import { A, cache, useAction, createAsync } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -217,7 +217,7 @@ function NoSpeakers() {
 }
 
 function SessionComponent(props: ParentProps<{ session: Session }>) {
-  const data = createAsyncStore(() => sessionizeData(), {
+  const data = createAsync(() => sessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
 
