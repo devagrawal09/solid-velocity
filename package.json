@@ -21,6 +21,7 @@
     "@solidjs/meta": "^0.29.4",
     "@solidjs/router": "^0.13.5",
     "@solidjs/start": "^1.0.1",
+    "@vercel/kv": "^2.0.0",
     "autoprefixer": "^10.4.19",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
