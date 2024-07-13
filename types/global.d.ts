@@ -3,9 +3,10 @@ export {};
 declare global {
   interface CustomJwtSessionClaims {
     orgMetadata: {};
-    publicMetadata: { speakerId?: string };
+    publicMetadata: UserPublicMetadata;
   }
   interface UserPublicMetadata {
     speakerId?: string;
+    role?: 'admin';
   }
 }

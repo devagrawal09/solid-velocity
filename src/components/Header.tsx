@@ -15,7 +15,7 @@ export default function Header() {
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
 
   return (
-    <header class="flex justify-between items-center px-4">
+    <header class="flex items-center px-4 gap-4">
       <A href="/">
         <img src={logoImg} alt="Momentum" width={64} height={64} />
       </A>
@@ -27,6 +27,8 @@ export default function Header() {
           </Button>
         </A>
       </Show>
+
+      <div class="grow"></div>
 
       <Show when={isSignedIn()} fallback={<a href="/sign-in">Sign In</a>}>
         <div use:clerkUI="UserButton"></div>

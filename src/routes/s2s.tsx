@@ -1,14 +1,15 @@
 import { Title } from '@solidjs/meta';
 import { RouteDefinition } from '@solidjs/router';
 import { Suspense } from 'solid-js';
-import { ScheduleSkeleton, SpeakerDashboard, sessionizeData } from '~/features/speakers/dashboard';
+import { ScheduleSkeleton, SpeakerDashboard } from '~/features/speakers/dashboard';
 import { getRequestSpeakerFn, getSignedUpSpeakersFn } from '~/features/speakers/api';
+import { getSessionizeData } from '~/features/sessionize/api';
 
 export const route = {
   load() {
     getRequestSpeakerFn();
     getSignedUpSpeakersFn();
-    sessionizeData();
+    getSessionizeData();
   }
 } satisfies RouteDefinition;
 

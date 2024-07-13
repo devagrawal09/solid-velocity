@@ -5,7 +5,9 @@ export default function SignIn() {
   return (
     <main>
       <Title>Sign up</Title>
-      <div use:clerkUI="SignUp"></div>
+      <div class="flex justify-center">
+        <div use:clerkUI="SignUp"></div>
+      </div>
     </main>
   );
 }

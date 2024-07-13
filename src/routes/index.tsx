@@ -3,12 +3,14 @@ import { RouteDefinition } from '@solidjs/router';
 import { ErrorBoundary, ParentProps, Show, Suspense } from 'solid-js';
 import { useClerk } from '~/components/ClerkProvider';
 import { Button } from '~/components/ui/button';
-import { Schedule, ScheduleSkeleton, getBookmarksFn, sessionizeData } from '~/features/schedule';
+import { Schedule, ScheduleSkeleton } from '~/features/schedule';
+import { getBookmarksFn } from '~/features/schedule/bookmarks';
+import { getSessionizeData } from '~/features/sessionize/api';
 import { SpeakerLandingAlert } from '~/features/speakers';
 
 export const route = {
   load() {
-    sessionizeData();
+    getSessionizeData();
     getBookmarksFn();
   }
 } satisfies RouteDefinition;
@@ -23,7 +25,6 @@ export default function Home() {
       <Show when={speakerId()}>
         <SpeakerLandingAlert />
       </Show>
-      <h1 class="text-4xl font-semibold my-4">Schedule</h1>
       <DefaultErrorBoundary>
         <Suspense fallback={<ScheduleSkeleton />}>
           <Schedule />

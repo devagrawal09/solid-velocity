@@ -1,5 +1,5 @@
 import { Collapsible } from '@kobalte/core/collapsible';
-import { A, cache, useAction, createAsync } from '@solidjs/router';
+import { A, useAction, createAsync } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -7,7 +7,6 @@ import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { For, ParentProps, Show, createMemo, createSignal } from 'solid-js';
 import { CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
-import { Category, Session, getCachedData } from '~/features/sessionize';
 import {
   getRequestSpeakerFn,
   getSignedUpSpeakersFn,
@@ -19,25 +18,31 @@ import { Button } from '~/components/ui/button';
 import { MySessionComponent } from './my-session';
 import { createEvent, createListener } from '~/lib/events';
 import { showToast } from '~/components/ui/toast';
+import { getSessionizeData } from '../sessionize/api';
+import type { Category, Session } from '~/features/sessionize/store';
+import { Callout, CalloutContent, CalloutTitle } from '~/components/ui/callout';
 
 type TimeSlot = [string, string, Session[]];
-
-export const sessionizeData = cache(async () => {
-  'use server';
-
-  const data = await getCachedData();
-  return data;
-}, 'sessionize');
 
 export function SpeakerDashboard() {
   const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
-  const data = createAsync(() => sessionizeData());
+  const data = createAsync(() => getSessionizeData());
 
   const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
 
+  const untimedSessions = createMemo(() =>
+    data()
+      ?.sessions.filter(s => !s.startsAt)
+      .filter(session => !session.speakers.includes(speakerId()))
+      .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)))
+  );
+
   const timeSlots = () =>
     data()?.sessions.reduce<TimeSlot[]>((acc, session) => {
+      if (!session.startsAt || !session.endsAt) {
+        return acc;
+      }
       const slot = acc.find(([start, end]) => start === session.startsAt && end === session.endsAt);
 
       if (slot) {
@@ -60,7 +65,29 @@ export function SpeakerDashboard() {
             <p class="text-lg my-4 grow">Sessions available for S2S</p>
             <OptOut />
           </div>
-          <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
+          <Show
+            when={timeSlots()?.length}
+            fallback={
+              <>
+                <Callout variant="warning">
+                  <CalloutTitle>No Schedule</CalloutTitle>
+                  <CalloutContent>
+                    While you can assign yourself sessions for feedback, the conference schedule is
+                    not yet finalized, so you might assign sessions that conflict with each other.
+                  </CalloutContent>
+                </Callout>
+                <For each={untimedSessions()}>
+                  {session => (
+                    <AssignmentProvider session={session}>
+                      <SessionComponent session={session} />
+                    </AssignmentProvider>
+                  )}
+                </For>
+              </>
+            }
+          >
+            <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
+          </Show>
         </Show>
       </Show>
     </>
@@ -71,8 +98,8 @@ function TimeSlotComponent(props: { slot: TimeSlot }) {
   const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
 
-  const start = () => props.slot[0];
-  const end = () => props.slot[1];
+  const start = () => props.slot[0] || '';
+  const end = () => props.slot[1] || '';
   const sessions = () => props.slot[2];
   const status = () => isStartingSoonOrStarted(start(), end());
 
@@ -217,7 +244,7 @@ function NoSpeakers() {
 }
 
 function SessionComponent(props: ParentProps<{ session: Session }>) {
-  const data = createAsync(() => sessionizeData(), {
+  const data = createAsync(() => getSessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
 
@@ -230,22 +257,18 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
         isAssigned() ? 'bg-momentum' : 'border-gray-700'
       )}
     >
-      <div class="flex">
+      <A href={`/session/${props.session.id}`}>
+        <h3 class="text-sm hover:underline">{props.session.title}</h3>
+      </A>
+      <div class="flex mt-2">
         <div class="grow flex flex-col gap-2">
-          <div class="flex gap-2">
-            <div class="grow flex flex-col gap-2">
-              <A href={`/session/${props.session.id}`}>
-                <h3 class="text-sm hover:underline">{props.session.title}</h3>
-              </A>
-              <p class="text-xs opacity-90">
-                {data().rooms.find(room => room.id === props.session.roomId)?.name}
-              </p>
-            </div>
-          </div>
+          <p class="text-xs opacity-90">
+            {data()?.rooms.find(room => room.id === props.session.roomId)?.name}
+          </p>
           <For each={props.session.speakers}>
             {speakerId => {
               const speaker = createMemo(() =>
-                data().speakers.find(speaker => speaker.id === speakerId)
+                data()?.speakers.find(speaker => speaker.id === speakerId)
               );
 
               return (
@@ -263,7 +286,7 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
             }}
           </For>
           <div class="flex flex-wrap gap-2">
-            <For each={data().categories}>
+            <For each={data()?.categories}>
               {category => (
                 <For each={categoriesForSession(category, props.session)}>
                   {item => (

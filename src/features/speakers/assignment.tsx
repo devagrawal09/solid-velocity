@@ -4,7 +4,7 @@ import { A, createAsync, useAction } from '@solidjs/router';
 import { Accessor, Show } from 'solid-js';
 import { showToast } from '~/components/ui/toast';
 import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './api';
-import { Session } from '../sessionize';
+import { Session } from '../sessionize/store';
 import { Button } from '~/components/ui/button';
 import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
 
@@ -20,11 +20,11 @@ export function AssignmentComponent(props: { session: Session }) {
 
 function Assigned(props: { sessionId: string; onUnassign: (args: any) => void }) {
   return (
-    <div class="flex flex-col justify-between items-end">
+    <div class="flex flex-col justify-around items-end">
       <Button onClick={props.onUnassign} class="text-sm font-bold" variant="destructive">
         Remove Assignment
       </Button>
-      <A class="text-sm font-bold" href={`/s2s/${props.sessionId}`}>
+      <A href={`/s2s/${props.sessionId}`}>
         <Button class="text-sm font-bold" variant="secondary">
           Submit Feedback
         </Button>
@@ -45,8 +45,6 @@ function Unassigned(props: { onAssign: (args: any) => void }) {
 
 export const [AssignmentProvider, useAssignment] = createContextProvider(
   (props: { session: Session }) => {
-    console.log(`AssignmentProvider`);
-
     const [onAssignClick, emitAssign] = createEvent();
     const [onUnassignClick, emitUnassign] = createEvent();
 

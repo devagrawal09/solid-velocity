@@ -1,5 +1,5 @@
 import { storage } from '~/db';
-import { getCachedData } from '../sessionize';
+import { getCachedData } from '../sessionize/store';
 
 export type SpeakerEvent =
   | { type: 'session-assigned'; speakerId: string; sessionId: string }

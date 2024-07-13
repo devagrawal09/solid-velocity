@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { storage } from '~/db';
+import { serverCache, storage } from '~/db';
 
 const roomSchema = z.object({
   id: z.number(),
@@ -13,11 +13,11 @@ const sessionSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string().nullable(),
-  startsAt: z.string(),
-  endsAt: z.string(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
   speakers: z.array(z.string()),
   categoryItems: z.array(z.number()),
-  roomId: z.number()
+  roomId: z.number().nullable()
 });
 
 export type Session = z.infer<typeof sessionSchema>;
@@ -33,7 +33,15 @@ const speakerSchema = z.object({
     z.object({
       title: z.string(),
       url: z.string(),
-      linkType: z.enum(['LinkedIn', 'Blog', 'Company_Website', 'Twitter'])
+      linkType: z.enum([
+        'LinkedIn',
+        'Blog',
+        'Company_Website',
+        'Twitter',
+        'Facebook',
+        'Instagram',
+        'Other'
+      ])
     })
   ),
   sessions: z.array(z.number()),
@@ -68,20 +76,12 @@ const sessionizeSchema = z.object({
 
 export type SessionizeData = z.infer<typeof sessionizeSchema>;
 
-export async function getData() {
-  const response = await fetch('https://sessionize.com/api/v2/s4ayfppt/view/All');
-  const data = await response.json();
-  return sessionizeSchema.parse(data);
-}
-
-export async function getCachedData() {
-  const cachedData = await storage.getItem<SessionizeData>(`sessionize-data`);
-
-  if (!cachedData) {
-    const data = await getData();
-    await storage.setItem<SessionizeData>(`sessionize-data`, data);
-    return data;
-  }
-
-  return cachedData;
-}
+export const getCachedData = serverCache(
+  async function () {
+    const response = await fetch('https://sessionize.com/api/v2/p0ni4alx/view/All');
+    const data = await response.json();
+    return sessionizeSchema.parse(data);
+  },
+  `sessionize`,
+  86400000 // 24 hours in milliseconds
+);

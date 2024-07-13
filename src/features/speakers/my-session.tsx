@@ -1,13 +1,13 @@
-import { createAsync, createAsyncStore, A } from '@solidjs/router';
+import { createAsync, A } from '@solidjs/router';
 import clsx from 'clsx';
 import { ParentProps, createMemo, For, Show } from 'solid-js';
-import { sessionizeData } from '../schedule';
 import { getRequestSpeakerFn, getSessionAssigneesFn, getSignedUpSpeakersFn } from './api';
-import { Category, Session } from '../sessionize';
+import type { Category, Session } from '../sessionize/store';
+import { getSessionizeData } from '../sessionize/api';
 
 export function MySessionComponent(props: ParentProps<{ session: Session }>) {
   const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
-  const data = createAsyncStore(() => sessionizeData());
+  const data = createAsync(() => getSessionizeData());
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
   const assigneeIds = createAsync(() => getSessionAssigneesFn(props.session.id));
 
