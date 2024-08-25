@@ -8,7 +8,7 @@ import {
   FaSolidArrowRight
 } from 'solid-icons/fa';
 import { BsEmojiFrownFill, BsEmojiNeutralFill, BsEmojiSmileFill } from 'solid-icons/bs';
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal } from 'solid-js';
+import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
 import { showToast } from '~/components/ui/toast';
 import { Button } from '@kobalte/core/button';
 import clsx from 'clsx';

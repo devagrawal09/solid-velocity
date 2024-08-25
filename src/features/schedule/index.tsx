@@ -1,4 +1,4 @@
-import { A, createAsync } from '@solidjs/router';
+import { A, createAsync, createAsyncStore } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -8,19 +8,20 @@ import {
   FaSolidChevronDown,
   FaSolidChevronRight
 } from 'solid-icons/fa';
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
 import { getSessionizeData } from '../sessionize/api';
 import type { Category, Session } from '../sessionize/store';
-import { BookmarksProvider, useBookmarks } from './bookmarks';
+import { BookmarksProvider, useBookmarks } from '~/features/bookmarks';
 
 type TimeSlot = [string, string, Session[]];
 
 export function Schedule() {
-  const data = createAsync(() => getSessionizeData(), {
+  const data = createAsyncStore(() => getSessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
+  // createEffect(() => console.log(data()));
 
   const untimedSessions = createMemo(() => data()?.sessions.filter(s => !s.startsAt));
 

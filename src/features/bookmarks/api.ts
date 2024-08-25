@@ -1,33 +1,45 @@
 import { action, cache } from '@solidjs/router';
-import { assertRequestAuth } from '~/auth';
+import { getRequestAuth } from '~/auth';
 import { bookmarkSession, getBookmarkedSessions, unbookmarkSession } from './store';
+import { db } from '~/db/drizzle';
 
 export const getUserBookmarks = cache(async () => {
   'use server';
 
-  const { userId } = assertRequestAuth();
+  const auth = getRequestAuth();
 
-  const data = await getBookmarkedSessions(userId);
+  if (auth?.userId) {
+    const { userId } = auth;
+    const data = await db.transaction(tx => getBookmarkedSessions(userId, tx));
 
-  return data;
+    return data;
+  }
+
+  return [];
 }, 'bookmarks');
 
 export const bookmarkSessionFn = action(async (sessionId: string) => {
   'use server';
 
-  const { userId } = assertRequestAuth();
+  const auth = getRequestAuth();
 
-  const result = await bookmarkSession({ userId, sessionId });
+  if (auth?.userId) {
+    const { userId } = auth;
+    const result = await db.transaction(tx => bookmarkSession({ userId, sessionId }, tx));
 
-  return result;
+    return result;
+  }
 });
 
 export const unbookmarkSessionFn = action(async (sessionId: string) => {
   'use server';
 
-  const { userId } = assertRequestAuth();
+  const auth = getRequestAuth();
 
-  const result = await unbookmarkSession({ userId, sessionId });
+  if (auth?.userId) {
+    const { userId } = auth;
+    const result = await db.transaction(tx => unbookmarkSession({ userId, sessionId }, tx));
 
-  return result;
+    return result;
+  }
 });

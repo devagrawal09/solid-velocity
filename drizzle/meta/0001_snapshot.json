@@ -1,0 +1,61 @@
+{
+  "id": "5ec12933-7a09-422c-9a76-f94066bd098c",
+  "prevId": "f3c2b004-7090-4584-bc25-6908233945f5",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.bookmark-events": {
+      "name": "bookmark-events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "bookmark-event-types",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    }
+  },
+  "enums": {
+    "public.bookmark-event-types": {
+      "name": "bookmark-event-types",
+      "schema": "public",
+      "values": [
+        "bookmarked",
+        "unbookmarked"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

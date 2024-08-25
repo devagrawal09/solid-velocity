@@ -4,14 +4,14 @@ import { ErrorBoundary, ParentProps, Show, Suspense } from 'solid-js';
 import { useClerk } from '~/components/ClerkProvider';
 import { Button } from '~/components/ui/button';
 import { Schedule, ScheduleSkeleton } from '~/features/schedule';
-import { getBookmarksFn } from '~/features/schedule/bookmarks';
+import { getUserBookmarks } from '~/features/bookmarks';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { SpeakerLandingAlert } from '~/features/speakers';
 
 export const route = {
   load() {
     getSessionizeData();
-    getBookmarksFn();
+    getUserBookmarks();
   }
 } satisfies RouteDefinition;
 

@@ -16,7 +16,7 @@ export function assertRequestAuth() {
 
   if (event) {
     const auth = event.locals.auth as AuthObject;
-    if (!auth.userId) throw new Error('Not signed in');
+    if (!auth?.userId) throw new Error('Not signed in');
     return auth;
   }
 
