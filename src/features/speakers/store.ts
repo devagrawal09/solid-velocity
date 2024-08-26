@@ -1,47 +1,55 @@
-import { storage } from '~/db';
 import { getCachedData } from '../sessionize/store';
+import { json, pgTable, PgTransaction, text, uuid } from 'drizzle-orm/pg-core';
 
-export type SpeakerEvent =
-  | { type: 'session-assigned'; speakerId: string; sessionId: string }
-  | { type: 'session-unassigned'; speakerId: string; sessionId: string }
-  | { type: 'speaker-signedup'; speakerId: string }
-  | { type: 'speaker-removed'; speakerId: string };
+type SpeakerEventData =
+  | { type: 'session-assigned'; sessionId: string }
+  | { type: 'session-unassigned'; sessionId: string }
+  | { type: 'speaker-signedup' }
+  | { type: 'speaker-removed' };
 
-async function getSpeakerEvents() {
-  return (await storage.getItem<SpeakerEvent[]>('s2s/events')) || [];
+export const speakerFeedbackEvents = pgTable(`speaker-feedback-events`, {
+  id: uuid(`id`).defaultRandom().primaryKey(),
+  speakerId: text(`speakerId`).notNull(),
+  feedback: json('feedback').$type<SpeakerEventData>().notNull()
+});
+
+export type SpeakerEvent = typeof speakerFeedbackEvents.$inferInsert;
+
+async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
+  return tx.select().from(speakerFeedbackEvents);
 }
 
-async function publishSpeakerEvent(events: SpeakerEvent[]) {
-  const existingEvents = await getSpeakerEvents();
-  storage.setItem('s2s/events', [...existingEvents, ...events]);
+async function publishSpeakerEvent(events: SpeakerEvent[], tx: PgTransaction<any, any, any>) {
+  await tx.insert(speakerFeedbackEvents).values(events);
   return events;
 }
 
-export async function getSpeakerAssignments(speakerId: string) {
-  const events = await getSpeakerEvents();
+export async function getSpeakerAssignments(speakerId: string, tx: PgTransaction<any, any, any>) {
+  const events = await getSpeakerEvents(tx);
 
   return events.reduce((acc, event) => {
-    if (event.type === 'session-assigned' && event.speakerId === speakerId) {
-      return [...acc, event.sessionId];
+    if (event.feedback.type === 'session-assigned' && event.speakerId === speakerId) {
+      return [...acc, event.feedback.sessionId];
     }
 
-    if (event.type === 'session-unassigned' && event.speakerId === speakerId) {
-      return acc.filter(s => s !== event.sessionId);
+    if (event.feedback.type === 'session-unassigned' && event.speakerId === speakerId) {
+      const sessionId = event.feedback.sessionId;
+      return acc.filter(s => s !== sessionId);
     }
 
     return acc;
   }, [] as string[]);
 }
 
-export async function getSignedUpSpeakers() {
-  const events = await getSpeakerEvents();
+export async function getSignedUpSpeakers(tx: PgTransaction<any, any, any>) {
+  const events = await getSpeakerEvents(tx);
 
   return events.reduce((acc, event) => {
-    if (event.type === 'speaker-signedup') {
+    if (event.feedback.type === 'speaker-signedup') {
       return [...acc, event.speakerId];
     }
 
-    if (event.type === 'speaker-removed') {
+    if (event.feedback.type === 'speaker-removed') {
       return acc.filter(s => s !== event.speakerId);
     }
 
@@ -49,15 +57,15 @@ export async function getSignedUpSpeakers() {
   }, [] as string[]);
 }
 
-export async function getSessionAssignees(sessionId: string) {
-  const events = await getSpeakerEvents();
+export async function getSessionAssignees(sessionId: string, tx: PgTransaction<any, any, any>) {
+  const events = await getSpeakerEvents(tx);
 
   return events.reduce((acc, event) => {
-    if (event.type === 'session-assigned' && event.sessionId === sessionId) {
+    if (event.feedback.type === 'session-assigned' && event.feedback.sessionId === sessionId) {
       return [...acc, event.speakerId];
     }
 
-    if (event.type === 'session-unassigned' && event.sessionId === sessionId) {
+    if (event.feedback.type === 'session-unassigned' && event.feedback.sessionId === sessionId) {
       return acc.filter(s => s !== event.speakerId);
     }
 
@@ -65,43 +73,55 @@ export async function getSessionAssignees(sessionId: string) {
   }, [] as string[]);
 }
 
-export async function signUpSpeaker(speakerId: string) {
-  const signedUpSpeakers = await getSignedUpSpeakers();
+export async function signUpSpeaker(speakerId: string, tx: PgTransaction<any, any, any>) {
+  const signedUpSpeakers = await getSignedUpSpeakers(tx);
   if (signedUpSpeakers.includes(speakerId)) return new Error('Speaker already signed up');
 
-  return publishSpeakerEvent([{ type: 'speaker-signedup', speakerId }]);
+  return publishSpeakerEvent([{ feedback: { type: 'speaker-signedup' }, speakerId }], tx);
 }
 
-export async function assignSpeakerToSession({
-  speakerId,
-  sessionId
-}: {
-  speakerId: string;
-  sessionId: string;
-}) {
-  const speakerAssignedSessions = await getSpeakerAssignments(speakerId);
+export async function assignSpeakerToSession(
+  {
+    speakerId,
+    sessionId
+  }: {
+    speakerId: string;
+    sessionId: string;
+  },
+  tx: PgTransaction<any, any, any>
+) {
+  const speakerAssignedSessions = await getSpeakerAssignments(speakerId, tx);
   if (speakerAssignedSessions.includes(sessionId))
     return new Error('Speaker already assigned to session');
 
-  return publishSpeakerEvent([{ type: 'session-assigned', speakerId, sessionId }]);
+  return publishSpeakerEvent(
+    [{ feedback: { type: 'session-assigned', sessionId }, speakerId }],
+    tx
+  );
 }
 
-export async function unassignSpeakerFromSession({
-  speakerId,
-  sessionId
-}: {
-  speakerId: string;
-  sessionId: string;
-}) {
-  const speakerAssignedSessions = await getSpeakerAssignments(speakerId);
+export async function unassignSpeakerFromSession(
+  {
+    speakerId,
+    sessionId
+  }: {
+    speakerId: string;
+    sessionId: string;
+  },
+  tx: PgTransaction<any, any, any>
+) {
+  const speakerAssignedSessions = await getSpeakerAssignments(speakerId, tx);
   if (!speakerAssignedSessions.includes(sessionId))
     return new Error('Speaker not assigned to session');
 
-  return publishSpeakerEvent([{ type: 'session-unassigned', speakerId, sessionId }]);
+  return publishSpeakerEvent(
+    [{ feedback: { type: 'session-unassigned', sessionId }, speakerId }],
+    tx
+  );
 }
 
-export async function removeSpeaker(speakerId: string) {
-  const signedUpSpeakers = await getSignedUpSpeakers();
+export async function removeSpeaker(speakerId: string, tx: PgTransaction<any, any, any>) {
+  const signedUpSpeakers = await getSignedUpSpeakers(tx);
   if (!signedUpSpeakers.includes(speakerId)) return new Error('Speaker not signed up');
 
   const session = await getSessionForSpeaker(speakerId);
@@ -109,38 +129,35 @@ export async function removeSpeaker(speakerId: string) {
   if (!session) return new Error('Invalid speaker id');
 
   const [unassignsToMySession, unassignsMe] = await Promise.all([
-    clearSessionAssignments(session.id),
-    clearSpeakerAssignments(speakerId)
+    clearSessionAssignments(session.id, tx),
+    clearSpeakerAssignments(speakerId, tx)
   ]);
 
-  return publishSpeakerEvent([
-    { type: 'speaker-removed', speakerId },
-    ...unassignsToMySession,
-    ...unassignsMe
-  ]);
+  return publishSpeakerEvent(
+    [{ feedback: { type: 'speaker-removed' }, speakerId }, ...unassignsToMySession, ...unassignsMe],
+    tx
+  );
 }
 
 async function getSessionForSpeaker(speakerId: string) {
   const sessionizeData = await getCachedData();
-  return sessionizeData.sessions.find(s => s.speakers.includes(speakerId));
+  return sessionizeData!.sessions.find(s => s.speakers.includes(speakerId));
 }
 
-async function clearSpeakerAssignments(speakerId: string) {
-  const assignments = await getSpeakerAssignments(speakerId);
+async function clearSpeakerAssignments(speakerId: string, tx: PgTransaction<any, any, any>) {
+  const assignments = await getSpeakerAssignments(speakerId, tx);
 
   return assignments.map(sessionId => ({
-    type: 'session-unassigned' as const,
-    speakerId,
-    sessionId
+    feedback: { type: 'session-unassigned' as const, sessionId },
+    speakerId
   }));
 }
 
-async function clearSessionAssignments(sessionId: string) {
-  const sessionAssignees = await getSessionAssignees(sessionId);
+async function clearSessionAssignments(sessionId: string, tx: PgTransaction<any, any, any>) {
+  const sessionAssignees = await getSessionAssignees(sessionId, tx);
 
   return sessionAssignees.map(speakerId => ({
-    type: 'session-unassigned' as const,
-    speakerId,
-    sessionId
+    feedback: { type: 'session-unassigned' as const, sessionId },
+    speakerId
   }));
 }

@@ -168,7 +168,7 @@ function OptOut() {
       });
     }
 
-    if (res.find(e => e.type === 'speaker-removed')) {
+    if (res.find(e => e.feedback.type === 'speaker-removed')) {
       showToast({
         title: (
           <>
@@ -204,7 +204,7 @@ function OptIn() {
       });
     }
 
-    if (res.find(e => e.type === 'speaker-signedup')) {
+    if (res.find(e => e.feedback.type === 'speaker-signedup')) {
       showToast({
         title: (
           <>

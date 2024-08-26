@@ -4,6 +4,7 @@ import { Suspense } from 'solid-js';
 import { ScheduleSkeleton, SpeakerDashboard } from '~/features/speakers/dashboard';
 import { getRequestSpeakerFn, getSignedUpSpeakersFn } from '~/features/speakers/api';
 import { getSessionizeData } from '~/features/sessionize/api';
+import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 
 export const route = {
   load() {
@@ -17,7 +18,10 @@ export default function Home() {
   return (
     <main class="px-5">
       <Title>Speaker Dashboard | Momentum Developer Conference</Title>
-      <h1 class="text-4xl font-semibold my-4">Speaker Dashboard</h1>
+      <div class="flex justify-between">
+        <h1 class="text-4xl font-semibold my-4">Speaker Dashboard</h1>
+        <SpeakerImpersonator />
+      </div>
       <Suspense fallback={<ScheduleSkeleton />}>
         <SpeakerDashboard />
       </Suspense>

@@ -9,12 +9,12 @@ import {
   unassignSpeakerFromSession,
   removeSpeaker
 } from './store';
+import { db } from '~/db/drizzle';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
 
   const auth = getRequestAuth();
-
   if (auth?.userId) {
     const speakerId = auth.sessionClaims.publicMetadata.speakerId;
     if (speakerId) return speakerId;
@@ -28,7 +28,7 @@ export const getSignedUpSpeakersFn = cache(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const speakers = await getSignedUpSpeakers();
+  const speakers = await db.transaction(tx => getSignedUpSpeakers(tx));
 
   if (speakers && speakers.includes(speakerId)) {
     return speakers;
@@ -42,7 +42,7 @@ export const getSpeakerAssignmentsFn = cache(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const assignments = await getSpeakerAssignments(speakerId);
+  const assignments = await db.transaction(tx => getSpeakerAssignments(speakerId, tx));
 
   return assignments || [];
 }, 's2s/assignments');
@@ -52,7 +52,7 @@ export const getSessionAssigneesFn = cache(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const assignees = await getSessionAssignees(sessionId);
+  const assignees = await db.transaction(tx => getSessionAssignees(sessionId, tx));
 
   return assignees || [];
 }, 's2s/assignees');
@@ -62,7 +62,7 @@ export const signUpSpeakerFn = action(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await signUpSpeaker(speakerId);
+  const result = await db.transaction(tx => signUpSpeaker(speakerId, tx));
 
   return result;
 });
@@ -72,7 +72,7 @@ export const assignToSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await assignSpeakerToSession({ speakerId, sessionId });
+  const result = await db.transaction(tx => assignSpeakerToSession({ speakerId, sessionId }, tx));
 
   return result;
 });
@@ -82,7 +82,9 @@ export const unassignFromSessionFn = action(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await unassignSpeakerFromSession({ speakerId, sessionId });
+  const result = await db.transaction(tx =>
+    unassignSpeakerFromSession({ speakerId, sessionId }, tx)
+  );
 
   return result;
 });
@@ -92,7 +94,7 @@ export const removeSpeakerFn = action(async () => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await removeSpeaker(speakerId);
+  const result = await db.transaction(tx => removeSpeaker(speakerId, tx));
 
   return result;
 });

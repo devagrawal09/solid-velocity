@@ -20,7 +20,7 @@ export const storage = createStorage({
 
 export type CachedData<D> = { data: D; timestamp?: number };
 
-export function serverCache<A = any, D = StorageValue>(
+export function serverCache<A = void, D = StorageValue>(
   fetchData: (a: A) => Promise<D>,
   cacheKey: string,
   ttl = 86400000
