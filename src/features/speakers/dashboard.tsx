@@ -14,7 +14,6 @@ import { createEvent, createListener } from '~/lib/events';
 import { showToast } from '~/components/ui/toast';
 import { getSessionizeData } from '../sessionize/api';
 import type { Category, Session } from '~/features/sessionize/store';
-import { Callout, CalloutContent, CalloutTitle } from '~/components/ui/callout';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -25,12 +24,12 @@ export function SpeakerDashboard() {
 
   const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
 
-  const untimedSessions = createMemo(() =>
-    data()
-      ?.sessions.filter(s => !s.startsAt)
-      .filter(session => !session.speakers.includes(speakerId()))
-      .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)))
-  );
+  // const untimedSessions = createMemo(() =>
+  //   data()
+  //     ?.sessions.filter(s => !s.startsAt)
+  //     .filter(session => !session.speakers.includes(speakerId()))
+  //     .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)))
+  // );
 
   const timeSlots = () =>
     data()?.sessions.reduce<TimeSlot[]>((acc, session) => {
@@ -66,21 +65,21 @@ export function SpeakerDashboard() {
           <AssignmentProvider>
             <Show
               when={timeSlots()?.length}
-              fallback={
-                <>
-                  <Callout variant="warning">
-                    <CalloutTitle>No Schedule</CalloutTitle>
-                    <CalloutContent>
-                      While you can assign yourself sessions for feedback, the conference schedule
-                      is not yet finalized, so you might assign sessions that conflict with each
-                      other.
-                    </CalloutContent>
-                  </Callout>
-                  <For each={untimedSessions()}>
-                    {session => <SessionComponent session={session} />}
-                  </For>
-                </>
-              }
+              // fallback={
+              //   <>
+              //     <Callout variant="warning">
+              //       <CalloutTitle>No Schedule</CalloutTitle>
+              //       <CalloutContent>
+              //         While you can assign yourself sessions for feedback, the conference schedule
+              //         is not yet finalized, so you might assign sessions that conflict with each
+              //         other.
+              //       </CalloutContent>
+              //     </Callout>
+              //     <For each={untimedSessions()}>
+              //       {session => <SessionComponent session={session} />}
+              //     </For>
+              //   </>
+              // }
             >
               <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
             </Show>

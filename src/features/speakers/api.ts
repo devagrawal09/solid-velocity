@@ -1,15 +1,14 @@
 import { action, cache, redirect } from '@solidjs/router';
 import { getRequestAuth } from '~/auth';
+import { db } from '~/db/drizzle';
 import {
   assignSpeakerToSession,
+  getAllAssignments,
   getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
-  signUpSpeaker,
-  unassignSpeakerFromSession,
-  removeSpeaker
+  signUpSpeaker
 } from './store';
-import { db } from '~/db/drizzle';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -56,6 +55,16 @@ export const getSessionAssigneesFn = cache(async (sessionId: string) => {
 
   return assignees || [];
 }, 's2s/assignees');
+
+export const getAllAssignmentsFn = cache(async () => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  const assignments = await db.transaction(tx => getAllAssignments(tx));
+
+  return assignments;
+}, 's2s/all-assignments');
 
 export const signUpSpeakerFn = action(async () => {
   'use server';

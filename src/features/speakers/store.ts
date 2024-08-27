@@ -73,6 +73,35 @@ export async function getSessionAssignees(sessionId: string, tx: PgTransaction<a
   }, [] as string[]);
 }
 
+export async function getAllAssignments(tx: PgTransaction<any, any, any>) {
+  const events = await getSpeakerEvents(tx);
+
+  return events.reduce(
+    (acc, event) => {
+      if (event.feedback.type === 'session-assigned') {
+        const sessionId = event.feedback.sessionId;
+
+        return {
+          ...acc,
+          [sessionId]: [...(acc[sessionId] || []), event.speakerId]
+        };
+      }
+
+      if (event.feedback.type === 'session-unassigned') {
+        const sessionId = event.feedback.sessionId;
+
+        return {
+          ...acc,
+          [sessionId]: (acc[sessionId] || []).filter(s => s !== event.speakerId)
+        };
+      }
+
+      return acc;
+    },
+    {} as Record<string, string[]>
+  );
+}
+
 export async function signUpSpeaker(speakerId: string, tx: PgTransaction<any, any, any>) {
   const signedUpSpeakers = await getSignedUpSpeakers(tx);
   if (signedUpSpeakers.includes(speakerId)) return new Error('Speaker already signed up');

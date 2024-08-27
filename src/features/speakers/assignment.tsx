@@ -8,7 +8,12 @@ import { showToast } from '~/components/ui/toast';
 import { TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
-import { assignToSessionFn, getSpeakerAssignmentsFn, unassignFromSessionFn } from './api';
+import {
+  assignToSessionFn,
+  getAllAssignmentsFn,
+  getSpeakerAssignmentsFn,
+  unassignFromSessionFn
+} from './api';
 
 export function AssignmentComponent(props: { sessionId: string }) {
   const { isAssigned } = useAssignment();
@@ -93,6 +98,8 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
     const [onUnassign, emitUnassign] = createEvent<string>();
 
     const data = createAsync(() => getSessionizeData());
+    const allAssignments = createAsync(() => getAllAssignmentsFn(), { initialValue: {} });
+
     const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
 
     const onAssignmentsChange = createTopic<string[]>(
@@ -125,6 +132,10 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
       const timeSlotConflict = assignedTimeSlots.includes(timeSlot);
 
       if (timeSlotConflict) return `You cannot assign two sessions at the same time slot`;
+
+      const assignees = allAssignments()[sessionId];
+
+      if (assignees?.length > 1) return `Session already has two assignees`;
     };
 
     createListener(onToggleResult, async result => {
