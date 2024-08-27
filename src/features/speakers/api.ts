@@ -92,9 +92,11 @@ export const unassignFromSessionFn = action(async (sessionId: string) => {
 export const removeSpeakerFn = action(async () => {
   'use server';
 
-  const speakerId = await getRequestSpeakerFn();
+  // const speakerId = await getRequestSpeakerFn();
 
-  const result = await db.transaction(tx => removeSpeaker(speakerId, tx));
+  // const result = await db.transaction(tx => removeSpeaker(speakerId, tx));
 
-  return result;
+  // return result;
+
+  throw new Error('Not allowed');
 });

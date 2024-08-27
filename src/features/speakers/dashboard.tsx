@@ -62,32 +62,35 @@ export function SpeakerDashboard() {
       <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
         <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
           <div class="flex items-center">
-            <p class="text-lg my-4 grow">Sessions available for S2S</p>
-            <OptOut />
+            <p class="my-4 grow">
+              <span class="text-xl">Sessions available for S2S</span>
+              <br />
+              Please assign two sessions to yourself
+            </p>
+            {/* <OptOut /> */}
           </div>
-          <Show
-            when={timeSlots()?.length}
-            fallback={
-              <>
-                <Callout variant="warning">
-                  <CalloutTitle>No Schedule</CalloutTitle>
-                  <CalloutContent>
-                    While you can assign yourself sessions for feedback, the conference schedule is
-                    not yet finalized, so you might assign sessions that conflict with each other.
-                  </CalloutContent>
-                </Callout>
-                <For each={untimedSessions()}>
-                  {session => (
-                    <AssignmentProvider session={session}>
-                      <SessionComponent session={session} />
-                    </AssignmentProvider>
-                  )}
-                </For>
-              </>
-            }
-          >
-            <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
-          </Show>
+          <AssignmentProvider>
+            <Show
+              when={timeSlots()?.length}
+              fallback={
+                <>
+                  <Callout variant="warning">
+                    <CalloutTitle>No Schedule</CalloutTitle>
+                    <CalloutContent>
+                      While you can assign yourself sessions for feedback, the conference schedule
+                      is not yet finalized, so you might assign sessions that conflict with each
+                      other.
+                    </CalloutContent>
+                  </Callout>
+                  <For each={untimedSessions()}>
+                    {session => <SessionComponent session={session} />}
+                  </For>
+                </>
+              }
+            >
+              <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
+            </Show>
+          </AssignmentProvider>
         </Show>
       </Show>
     </>
@@ -139,26 +142,20 @@ function TimeSlotComponent(props: { slot: TimeSlot }) {
           </span>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <For each={signedUpSessions()}>
-            {session => (
-              <AssignmentProvider session={session}>
-                <SessionComponent session={session} />
-              </AssignmentProvider>
-            )}
-          </For>
+          <For each={signedUpSessions()}>{session => <SessionComponent session={session} />}</For>
         </CollapsibleContent>
       </Collapsible>
     </Show>
   );
 }
 
-function OptOut() {
+/* function OptOut() {
   const [onOptOut, emitOptOut] = createEvent();
   const removeSpeakerAction = useAction(removeSpeakerFn);
   const onOptOutResult = onOptOut(removeSpeakerAction);
 
   createListener(onOptOutResult, async result => {
-    const res = await result;
+    const res = (await result) as any[];
 
     if (res instanceof Error) {
       return showToast({
@@ -186,7 +183,7 @@ function OptOut() {
       Opt-out of S2S
     </Button>
   );
-}
+} */
 
 function OptIn() {
   const [onOptIn, emitOptIn] = createEvent();
@@ -254,7 +251,7 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
     <div
       class={clsx(
         'border rounded-xl p-3 my-2 border-gray-700',
-        isAssigned() ? 'bg-momentum' : 'border-gray-700'
+        isAssigned(props.session.id) ? 'bg-momentum' : 'border-gray-700'
       )}
     >
       <A href={`/session/${props.session.id}`}>
@@ -305,7 +302,7 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
             </For>
           </div>
         </div>
-        <AssignmentComponent session={props.session} />
+        <AssignmentComponent sessionId={props.session.id} />
       </div>
     </div>
   );

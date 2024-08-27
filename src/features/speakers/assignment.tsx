@@ -1,27 +1,35 @@
+import { Tooltip } from '@kobalte/core/tooltip';
 import { createContextProvider } from '@solid-primitives/context';
 import { createLatest } from '@solid-primitives/memo';
 import { A, createAsync, useAction } from '@solidjs/router';
 import { Accessor, Show } from 'solid-js';
-import { showToast } from '~/components/ui/toast';
-import { getSpeakerAssignmentsFn, assignToSessionFn, unassignFromSessionFn } from './api';
-import { Session } from '../sessionize/store';
 import { Button } from '~/components/ui/button';
+import { showToast } from '~/components/ui/toast';
+import { TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { getSessionizeData } from '~/features/sessionize/api';
 import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
+import { assignToSessionFn, getSpeakerAssignmentsFn, unassignFromSessionFn } from './api';
 
-export function AssignmentComponent(props: { session: Session }) {
-  const { isAssigned, emitAssign, emitUnassign } = useAssignment();
+export function AssignmentComponent(props: { sessionId: string }) {
+  const { isAssigned } = useAssignment();
 
   return (
-    <Show when={isAssigned()} fallback={<Unassigned onAssign={emitAssign} />}>
-      <Assigned sessionId={props.session.id} onUnassign={emitUnassign} />
+    <Show when={isAssigned(props.sessionId)} fallback={<Unassigned sessionId={props.sessionId} />}>
+      <Assigned sessionId={props.sessionId} />
     </Show>
   );
 }
 
-function Assigned(props: { sessionId: string; onUnassign: (args: any) => void }) {
+function Assigned(props: { sessionId: string }) {
+  const { emitUnassign } = useAssignment();
+
   return (
     <div class="flex flex-col justify-around items-end">
-      <Button onClick={props.onUnassign} class="text-sm font-bold" variant="destructive">
+      <Button
+        onClick={() => emitUnassign(props.sessionId)}
+        class="text-sm font-bold"
+        variant="destructive"
+      >
         Remove Assignment
       </Button>
       <A href={`/s2s/${props.sessionId}`}>
@@ -33,23 +41,57 @@ function Assigned(props: { sessionId: string; onUnassign: (args: any) => void })
   );
 }
 
-function Unassigned(props: { onAssign: (args: any) => void }) {
+function Unassigned(props: { sessionId: string }) {
+  const { assignmentDisabled, emitAssign } = useAssignment();
+
   return (
-    <div class="flex flex-col">
-      <Button onClick={props.onAssign} variant="success" class="text-sm font-bold">
-        Assign to me
-      </Button>
+    <div class="flex flex-col justify-around items-end">
+      <Show
+        when={assignmentDisabled(props.sessionId)}
+        fallback={
+          <Button
+            onClick={() => emitAssign(props.sessionId)}
+            variant="success"
+            class="text-sm font-bold"
+          >
+            Assign to me
+          </Button>
+        }
+      >
+        {reason => (
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                onClick={() => emitAssign(props.sessionId)}
+                variant="success"
+                class="text-sm font-bold"
+                disabled
+              >
+                Assign to me
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{reason()}</TooltipContent>
+          </Tooltip>
+        )}
+      </Show>
+
+      <A href={`/s2s/${props.sessionId}`}>
+        <Button class="text-sm font-bold" variant="secondary">
+          Submit Feedback
+        </Button>
+      </A>
     </div>
   );
 }
 
 export const [AssignmentProvider, useAssignment] = createContextProvider(
-  (props: { session: Session }) => {
-    const [onAssignClick, emitAssign] = createEvent();
-    const [onUnassignClick, emitUnassign] = createEvent();
+  () => {
+    console.log(`AssignmentProvider`);
+    const [onAssign, emitAssign] = createEvent<string>();
+    const [onUnassign, emitUnassign] = createEvent<string>();
 
-    const onAssign = onAssignClick(() => props.session.id);
-    const onUnassign = onUnassignClick(() => props.session.id);
+    const data = createAsync(() => getSessionizeData());
+    const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
 
     const onAssignmentsChange = createTopic<string[]>(
       onAssign(sessionId => [...assignments(), sessionId]),
@@ -63,7 +105,7 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
 
     const assignments = createLatest([localAssignments, serverAssignments]) as Accessor<string[]>;
 
-    const isAssigned = () => assignments()?.includes(props.session.id);
+    const isAssigned = (sessionId: string) => assignments()?.includes(sessionId);
 
     const assignToSession = useAction(assignToSessionFn);
     const unassignFromSession = useAction(unassignFromSessionFn);
@@ -72,6 +114,16 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
     const onUnassignResult = onUnassign(unassignFromSession);
 
     const onToggleResult = createTopic(onAssignResult, onUnassignResult);
+
+    const assignmentDisabled = (sessionId: string) => {
+      if (assignments().length > 1) return `You cannot assign more than two sessions`;
+
+      const timeSlot = getSession(sessionId)?.startsAt;
+      const assignedTimeSlots = assignments().map(id => getSession(id)?.startsAt);
+      const timeSlotConflict = assignedTimeSlots.includes(timeSlot);
+
+      if (timeSlotConflict) return `You cannot assign two sessions at the same time slot`;
+    };
 
     createListener(onToggleResult, async result => {
       const events = await result;
@@ -84,25 +136,36 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
         });
       }
 
-      if (events.find(e => e.type === 'session-assigned'))
-        return showToast({
-          title: `${props.session.title.substring(0, 30)}... added to Assignments`,
-          variant: 'success',
-          duration: 2000
-        });
+      events.forEach(e => {
+        if (e.feedback.type === 'session-assigned') {
+          const session = getSession(e.feedback.sessionId);
+          session &&
+            showToast({
+              title: `${session.title.substring(0, 30)}... assigned to you`,
+              variant: 'success',
+              duration: 2000
+            });
+        }
 
-      if (events.find(e => e.type === 'session-unassigned'))
-        return showToast({
-          title: `${props.session.title.substring(0, 30)}... removed from Assignments`,
-          variant: 'destructive',
-          duration: 2000
-        });
+        if (e.feedback.type === 'session-unassigned') {
+          const session = getSession(e.feedback.sessionId);
+          session &&
+            showToast({
+              title: `${session.title.substring(0, 30)}... removed from Assignments`,
+              variant: 'destructive',
+              duration: 2000
+            });
+        }
+      });
     });
 
-    return { isAssigned, emitAssign, emitUnassign };
+    return { isAssigned, assignmentDisabled, emitAssign, emitUnassign };
   },
   {
     isAssigned: () => {
+      throw new Error(`useAssignment was used outside <AssignmentProvider>`);
+    },
+    assignmentDisabled: () => {
       throw new Error(`useAssignment was used outside <AssignmentProvider>`);
     },
     emitAssign: () => {
