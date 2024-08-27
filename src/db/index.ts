@@ -44,7 +44,6 @@ export function serverCache<A = void, D = StorageValue>(
       consola.log(`Cache stale: ${cacheKey}`);
       // Refetch fresh data
       const data = await fetchData(a);
-      if (!data) return;
       await storage.setItem<CachedData<D>>(storageKey, { data, timestamp: new Date().getTime() });
       return data;
     }

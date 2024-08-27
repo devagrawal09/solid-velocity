@@ -90,9 +90,23 @@ export async function assignSpeakerToSession(
   },
   tx: PgTransaction<any, any, any>
 ) {
+  const data = await getCachedData();
+  const session = data.sessions.find(s => s.id === sessionId)!;
+
   const speakerAssignedSessions = await getSpeakerAssignments(speakerId, tx);
+
   if (speakerAssignedSessions.includes(sessionId))
     return new Error('Speaker already assigned to session');
+
+  if (speakerAssignedSessions.length > 1)
+    return new Error('Speaker already assigned to two sessions');
+
+  const timeSlot = session.startsAt!;
+  const assignedTimeSlots = speakerAssignedSessions.map(
+    id => data.sessions.find(s => s.id === id)!.startsAt!
+  );
+  if (assignedTimeSlots.includes(timeSlot))
+    return new Error('Speaker already assigned to a session at the same time');
 
   return publishSpeakerEvent(
     [{ feedback: { type: 'session-assigned', sessionId }, speakerId }],
