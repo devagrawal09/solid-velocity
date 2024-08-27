@@ -80,13 +80,15 @@ export const assignToSessionFn = action(async (sessionId: string) => {
 export const unassignFromSessionFn = action(async (sessionId: string) => {
   'use server';
 
-  const speakerId = await getRequestSpeakerFn();
+  // const speakerId = await getRequestSpeakerFn();
 
-  const result = await db.transaction(tx =>
-    unassignSpeakerFromSession({ speakerId, sessionId }, tx)
-  );
+  // const result = await db.transaction(tx =>
+  //   unassignSpeakerFromSession({ speakerId, sessionId }, tx)
+  // );
 
-  return result;
+  // return result;
+
+  throw new Error('Not allowed');
 });
 
 export const removeSpeakerFn = action(async () => {

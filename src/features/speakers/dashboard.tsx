@@ -7,14 +7,8 @@ import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { For, ParentProps, Show, createMemo, createSignal } from 'solid-js';
 import { CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-  getRequestSpeakerFn,
-  getSignedUpSpeakersFn,
-  removeSpeakerFn,
-  signUpSpeakerFn
-} from './api';
+import { getRequestSpeakerFn, getSignedUpSpeakersFn, signUpSpeakerFn } from './api';
 import { AssignmentComponent, AssignmentProvider, useAssignment } from './assignment';
-import { Button } from '~/components/ui/button';
 import { MySessionComponent } from './my-session';
 import { createEvent, createListener } from '~/lib/events';
 import { showToast } from '~/components/ui/toast';

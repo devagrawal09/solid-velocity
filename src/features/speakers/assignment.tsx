@@ -21,16 +21,19 @@ export function AssignmentComponent(props: { sessionId: string }) {
 }
 
 function Assigned(props: { sessionId: string }) {
-  const { emitUnassign } = useAssignment();
+  // const { emitUnassign } = useAssignment();
 
   return (
     <div class="flex flex-col justify-around items-end">
-      <Button
+      {/* <Button
         onClick={() => emitUnassign(props.sessionId)}
         class="text-sm font-bold"
         variant="destructive"
       >
         Remove Assignment
+      </Button> */}
+      <Button class="text-sm font-bold" variant="success" disabled>
+        Assigned
       </Button>
       <A href={`/s2s/${props.sessionId}`}>
         <Button class="text-sm font-bold" variant="secondary">
@@ -86,7 +89,6 @@ function Unassigned(props: { sessionId: string }) {
 
 export const [AssignmentProvider, useAssignment] = createContextProvider(
   () => {
-    console.log(`AssignmentProvider`);
     const [onAssign, emitAssign] = createEvent<string>();
     const [onUnassign, emitUnassign] = createEvent<string>();
 
