@@ -1,8 +1,8 @@
+import { A } from '@solidjs/router';
 import { Show, createMemo } from 'solid-js';
 import { clerkUI } from '~/directives/clerk';
-import { useClerk } from './ClerkProvider';
-import { A } from '@solidjs/router';
 import logoImg from '../logo.svg';
+import { useClerk } from './ClerkProvider';
 import { Button } from './ui/button';
 
 export default function Header() {
@@ -24,6 +24,13 @@ export default function Header() {
         <A href={`/s2s`} class="text-lg">
           <Button variant="link" class="text-white">
             Speaker Dashboard
+          </Button>
+        </A>
+      </Show>
+      <Show when={isSignedIn()}>
+        <A href={`/attendee`} class="text-lg">
+          <Button variant="link" class="text-white">
+            Attendee Dashboard
           </Button>
         </A>
       </Show>

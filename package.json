@@ -12,7 +12,7 @@
   "dependencies": {
     "@clerk/clerk-js": "^5.7.0",
     "@clerk/clerk-sdk-node": "^5.0.11",
-    "@kobalte/core": "^0.13.4",
+    "@kobalte/core": "^0.13.6",
     "@solid-devtools/overlay": "^0.30.1",
     "@solid-primitives/context": "^0.2.3",
     "@solid-primitives/map": "^0.4.11",
@@ -24,6 +24,7 @@
     "@vercel/kv": "^2.0.0",
     "autoprefixer": "^10.4.19",
     "class-variance-authority": "^0.7.0",
+    "clerk-solidjs": "^1.1.13",
     "clsx": "^2.1.1",
     "consola": "^3.2.3",
     "date-fns": "^2.30.0",

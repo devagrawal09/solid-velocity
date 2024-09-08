@@ -1,4 +1,3 @@
-import { Button } from '@kobalte/core/button';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
 import { A, createAsync, useAction, useParams } from '@solidjs/router';
@@ -15,6 +14,7 @@ import {
 } from 'solid-icons/fa';
 import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
 import { useClerk } from '~/components/ClerkProvider';
+import { Button } from '~/components/ui/button';
 import { showToast } from '~/components/ui/toast';
 import { getSessionFeedback, rateSessionFn, reviewSessionFn } from '~/features/feedback/api';
 import { getSessionizeData } from '~/features/sessionize/api';

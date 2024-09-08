@@ -1,11 +1,10 @@
-import { Collapsible } from '@kobalte/core/collapsible';
 import { A, useAction, createAsync } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { For, ParentProps, Show, createMemo, createSignal } from 'solid-js';
-import { CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
 import { getRequestSpeakerFn, getSignedUpSpeakersFn, signUpSpeakerFn } from './api';
 import { AssignmentComponent, AssignmentProvider, useAssignment } from './assignment';

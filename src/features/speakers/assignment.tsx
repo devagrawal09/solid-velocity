@@ -1,11 +1,10 @@
-import { Tooltip } from '@kobalte/core/tooltip';
 import { createContextProvider } from '@solid-primitives/context';
 import { createLatest } from '@solid-primitives/memo';
 import { A, createAsync, useAction } from '@solidjs/router';
 import { Accessor, Show } from 'solid-js';
 import { Button } from '~/components/ui/button';
 import { showToast } from '~/components/ui/toast';
-import { TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { createEvent, createListener, createSubject, createTopic } from '~/lib/events';
 import {
