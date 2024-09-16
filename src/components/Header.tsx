@@ -1,17 +1,14 @@
 import { A } from '@solidjs/router';
-import { Show, createMemo } from 'solid-js';
-import { clerkUI } from '~/directives/clerk';
+import { Show, createEffect, createMemo } from 'solid-js';
 import logoImg from '../logo.svg';
-import { useClerk } from './ClerkProvider';
 import { Button } from './ui/button';
+import { SignInButton, useClerk, UserButton } from 'clerk-solidjs';
 
 export default function Header() {
-  const { clerk } = useClerk();
+  const clerk = useClerk();
 
-  const isSignedIn = createMemo(() => {
-    return Boolean(clerk()?.user);
-  });
-
+  const isSignedIn = createMemo(() => Boolean(clerk()?.user));
+  createEffect(() => console.log('user', clerk()?.user));
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
 
   return (
@@ -37,8 +34,8 @@ export default function Header() {
 
       <div class="grow"></div>
 
-      <Show when={isSignedIn()} fallback={<a href="/sign-in">Sign In</a>}>
-        <div use:clerkUI="UserButton"></div>
+      <Show when={isSignedIn()} fallback={<SignInButton>Login</SignInButton>}>
+        <UserButton />
       </Show>
     </header>
   );

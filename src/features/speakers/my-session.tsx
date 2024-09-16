@@ -1,6 +1,6 @@
 import { createAsync, A } from '@solidjs/router';
 import clsx from 'clsx';
-import { ParentProps, createMemo, For, Show } from 'solid-js';
+import { type ParentProps, createMemo, For, Show } from 'solid-js';
 import { getRequestSpeakerFn, getSessionAssigneesFn, getSignedUpSpeakersFn } from './api';
 import type { Category, Session } from '../sessionize/store';
 import { getSessionizeData } from '../sessionize/api';

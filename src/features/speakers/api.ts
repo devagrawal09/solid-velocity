@@ -4,10 +4,13 @@ import { db } from '~/db/drizzle';
 import {
   assignSpeakerToSession,
   getAllAssignments,
+  getFeedback,
   getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
-  signUpSpeaker
+  signUpSpeaker,
+  SpeakerFeedbackFormData,
+  submitFeedback
 } from './store';
 
 export const getRequestSpeakerFn = cache(async () => {
@@ -66,6 +69,16 @@ export const getAllAssignmentsFn = cache(async () => {
   return assignments;
 }, 's2s/all-assignments');
 
+export const getFeedbackFn = cache(async (sessionId: string) => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  const result = await db.transaction(tx => getFeedback(sessionId, tx));
+
+  return result;
+}, 's2s/feedback');
+
 export const signUpSpeakerFn = action(async () => {
   'use server';
 
@@ -111,3 +124,15 @@ export const removeSpeakerFn = action(async () => {
 
   throw new Error('Not allowed');
 });
+
+export const submitFeedbackFn = action(
+  async ({ sessionId, data }: { sessionId: string; data: SpeakerFeedbackFormData }) => {
+    'use server';
+
+    const speakerId = await getRequestSpeakerFn();
+
+    const result = await db.transaction(tx => submitFeedback({ speakerId, sessionId, data }, tx));
+
+    return result;
+  }
+);

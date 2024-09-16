@@ -1,7 +1,6 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import { action, createAsync, revalidate, useAction } from '@solidjs/router';
 import { assertRequestAuth } from '~/auth';
-import { useClerk } from '~/components/ClerkProvider';
 import {
   Select,
   SelectContent,
@@ -12,6 +11,7 @@ import {
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Speaker } from '../sessionize/store';
 import { Show } from 'solid-js';
+import { useClerk } from 'clerk-solidjs';
 
 const impersonateSpeaker = action(async (speakerId: string) => {
   'use server';
@@ -25,7 +25,7 @@ const impersonateSpeaker = action(async (speakerId: string) => {
 export function SpeakerImpersonator() {
   const sessionizeData = createAsync(() => getSessionizeData());
   const impersonateSpeakerAction = useAction(impersonateSpeaker);
-  const { clerk } = useClerk();
+  const clerk = useClerk();
 
   const isAdmin = () => clerk()?.user?.publicMetadata.role === 'admin';
 
@@ -39,6 +39,7 @@ export function SpeakerImpersonator() {
         <Select
           value={selectedSpeaker()}
           onChange={async v => {
+            if (!v) return;
             console.log(selectedSpeaker()?.id, v.id);
             if (v.id === selectedSpeaker()?.id) return;
             await impersonateSpeakerAction(v.id);

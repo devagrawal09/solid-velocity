@@ -3,11 +3,11 @@ import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
 import { useAction, createAsync } from '@solidjs/router';
 import { createEffect, createMemo } from 'solid-js';
-import { useClerk } from '~/components/ClerkProvider';
 import { getUserBookmarks, bookmarkSessionFn, unbookmarkSessionFn } from './api';
+import { useClerk } from 'clerk-solidjs';
 
 export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
-  const { clerk } = useClerk();
+  const clerk = useClerk();
   const isSignedIn = createMemo(() => {
     return Boolean(clerk()?.user);
   });

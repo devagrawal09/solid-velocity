@@ -1,11 +1,11 @@
+import { createContextProvider } from '@solid-primitives/context';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
-import { createContextProvider } from '@solid-primitives/context';
 import { action, cache, createAsync, reload, useAction } from '@solidjs/router';
+import { useClerk } from 'clerk-solidjs';
 import { createMemo } from 'solid-js';
 import { getRequestAuth } from '~/auth';
-import { useClerk } from '~/components/ClerkProvider';
-import { storage } from '~/db';
+import { storage } from '~/db/kv';
 
 export type Bookmark = { sessionId: string; bookmarked: boolean };
 
@@ -51,7 +51,7 @@ const toggleBookmarkFn = action(async (sessionId: string) => {
 });
 
 export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
-  const { clerk } = useClerk();
+  const clerk = useClerk();
   const isSignedIn = createMemo(() => {
     return Boolean(clerk()?.user);
   });

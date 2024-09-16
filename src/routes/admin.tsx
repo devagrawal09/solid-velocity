@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow
 } from '~/components/ui/table';
-import { storage } from '~/db';
+import { storage } from '~/db/kv';
 
 const getData = cache(async () => {
   'use server';

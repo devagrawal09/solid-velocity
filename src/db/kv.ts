@@ -5,10 +5,10 @@ import { consola } from 'consola';
 type StorageValue = null | string | number | boolean | object;
 
 const kvUrl = process.env.KV_REST_API_URL;
-if (!kvUrl) throw new Error('KV_REST_API_URL is not set');
+// if (!kvUrl) throw new Error('KV_REST_API_URL is not set');
 
 const kvToken = process.env.KV_REST_API_TOKEN;
-if (!kvToken) throw new Error('KV_REST_API_URL is not set');
+// if (!kvToken) throw new Error('KV_REST_API_URL is not set');
 
 export const storage = createStorage({
   driver: vercelKVDriver({
@@ -18,7 +18,7 @@ export const storage = createStorage({
   })
 });
 
-export type CachedData<D> = { data: D; timestamp?: number };
+type CachedData<D> = { data: D; timestamp?: number };
 
 export function serverCache<A = void, D = StorageValue>(
   fetchData: (a: A) => Promise<D>,

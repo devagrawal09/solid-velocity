@@ -1,16 +1,28 @@
+import { json, pgTable, PgTransaction, text, uuid, timestamp } from 'drizzle-orm/pg-core';
+import { z } from 'zod';
 import { getCachedData } from '../sessionize/store';
-import { json, pgTable, PgTransaction, text, uuid } from 'drizzle-orm/pg-core';
+
+export const speakerFeedbackFormSchema = z.object({
+  rating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  why: z.string().min(5),
+  fav: z.string().min(5),
+  improve: z.string().min(5),
+  comments: z.string().min(5)
+});
+export type SpeakerFeedbackFormData = z.infer<typeof speakerFeedbackFormSchema>;
 
 type SpeakerEventData =
   | { type: 'session-assigned'; sessionId: string }
   | { type: 'session-unassigned'; sessionId: string }
   | { type: 'speaker-signedup' }
-  | { type: 'speaker-removed' };
+  | { type: 'speaker-removed' }
+  | { type: 'session-feedback'; sessionId: string; data: SpeakerFeedbackFormData };
 
 export const speakerFeedbackEvents = pgTable(`speaker-feedback-events`, {
   id: uuid(`id`).defaultRandom().primaryKey(),
   speakerId: text(`speakerId`).notNull(),
-  feedback: json('feedback').$type<SpeakerEventData>().notNull()
+  feedback: json('feedback').$type<SpeakerEventData>().notNull(),
+  timestamp: timestamp(`timestamp`).defaultNow().notNull()
 });
 
 export type SpeakerEvent = typeof speakerFeedbackEvents.$inferInsert;
@@ -20,6 +32,7 @@ async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
 }
 
 async function publishSpeakerEvent(events: SpeakerEvent[], tx: PgTransaction<any, any, any>) {
+  console.log({ events });
   await tx.insert(speakerFeedbackEvents).values(events);
   return events;
 }
@@ -182,6 +195,39 @@ export async function removeSpeaker(speakerId: string, tx: PgTransaction<any, an
 
   return publishSpeakerEvent(
     [{ feedback: { type: 'speaker-removed' }, speakerId }, ...unassignsToMySession, ...unassignsMe],
+    tx
+  );
+}
+
+export async function getFeedback(sessionId: string, tx: PgTransaction<any, any, any>) {
+  const events = await getSpeakerEvents(tx);
+
+  return events.reduce(
+    (acc, event) => {
+      if (event.feedback.type === 'session-feedback' && event.feedback.sessionId === sessionId) {
+        return { ...event.feedback.data, timestamp: event.timestamp };
+      }
+
+      return acc;
+    },
+    {} as SpeakerFeedbackFormData & { timestamp: Date }
+  );
+}
+
+export async function submitFeedback(
+  {
+    speakerId,
+    sessionId,
+    data
+  }: {
+    speakerId: string;
+    sessionId: string;
+    data: SpeakerFeedbackFormData;
+  },
+  tx: PgTransaction<any, any, any>
+) {
+  return publishSpeakerEvent(
+    [{ feedback: { type: 'session-feedback', sessionId, data }, speakerId }],
     tx
   );
 }

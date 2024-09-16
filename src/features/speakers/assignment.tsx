@@ -101,12 +101,11 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
 
     const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
 
-    const onAssignmentsChange = createTopic<string[]>(
+    const localAssignments = createSubject(
+      [],
       onAssign(sessionId => [...assignments(), sessionId]),
       onUnassign(sessionId => assignments().filter(id => id !== sessionId))
     );
-
-    const localAssignments = createSubject(onAssignmentsChange, []);
     const serverAssignments = createAsync(() => getSpeakerAssignmentsFn(), {
       initialValue: []
     });

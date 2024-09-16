@@ -1,7 +1,7 @@
 import { Title } from '@solidjs/meta';
-import { RouteDefinition } from '@solidjs/router';
-import { ErrorBoundary, ParentProps, Show, Suspense } from 'solid-js';
-import { useClerk } from '~/components/ClerkProvider';
+import type { RouteDefinition } from '@solidjs/router';
+import { ErrorBoundary, type ParentProps, Show, Suspense } from 'solid-js';
+import { useClerk } from 'clerk-solidjs';
 import { Button } from '~/components/ui/button';
 import { Schedule, ScheduleSkeleton } from '~/features/schedule';
 import { getUserBookmarks } from '~/features/bookmarks';
@@ -16,7 +16,7 @@ export const route = {
 } satisfies RouteDefinition;
 
 export default function Home() {
-  const { clerk } = useClerk();
+  const clerk = useClerk();
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
 
   return (

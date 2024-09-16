@@ -1,5 +1,3 @@
-import { createWritableMemo } from '@solid-primitives/memo';
-import { makePersisted } from '@solid-primitives/storage';
 import { A, createAsync, useAction, useParams } from '@solidjs/router';
 import clsx from 'clsx';
 import { format } from 'date-fns';
@@ -12,13 +10,23 @@ import {
   FaSolidMapPin,
   FaSolidTags
 } from 'solid-icons/fa';
-import { For, Match, Show, Switch, createMemo, createSignal } from 'solid-js';
-import { useClerk } from '~/components/ClerkProvider';
+import { createMemo, For, Match, Show, Switch } from 'solid-js';
+
 import { Button } from '~/components/ui/button';
 import { showToast } from '~/components/ui/toast';
 import { getSessionFeedback, rateSessionFn, reviewSessionFn } from '~/features/feedback/api';
+import { Rating } from '~/features/feedback/store';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
+import {
+  createEmitter,
+  createEvent,
+  createListener,
+  createSubject,
+  createTopic,
+  Handler
+} from '~/lib/events';
+import { useClerk } from 'clerk-solidjs';
 
 export default function SessionPage() {
   const data = createAsync(() => getSessionizeData());
@@ -110,73 +118,60 @@ function categoriesForSession(
   return category.items.filter(item => session.categoryItems.includes(item.id));
 }
 
+type SessionFeedback = {
+  rating?: Rating;
+  review?: string;
+};
+
 function Feedback(props: { sessionId: string }) {
-  const { clerk } = useClerk();
-  const isSignedIn = createMemo(() => {
-    return Boolean(clerk()?.user);
-  });
-
-  const [state, setState] = createSignal<'rating' | 'review'>('rating');
-
-  const [sessionFeedback, setSessionFeedback] = makePersisted(
-    createWritableMemo(createAsync(() => getSessionFeedback(props.sessionId))),
-    {
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      name: `sessionFeedback/${props.sessionId}`
-    }
+  const clerk = useClerk();
+  const isSignedIn = createMemo(() => Boolean(clerk()?.user));
+  const onServerFeedback = createEmitter(
+    createAsync(() => getSessionFeedback(props.sessionId), { initialValue: {} })
   );
 
-  const hasRated = () => !(sessionFeedback()?.rating === undefined);
+  const [onStateChange, emitStateChange] = createEvent<'rating' | 'review'>();
+  const [onRated, emitRated] = createEvent<0 | 1 | 2>();
+  const [onReview, emitReview] = createEvent<string>();
 
   const rateSessionAction = useAction(rateSessionFn);
   const reviewSessionAction = useAction(reviewSessionFn);
 
-  async function rateTalk(rating: 0 | 1 | 2) {
-    try {
-      const alreadyRated = hasRated();
-      setSessionFeedback(s => ({ ...s, rating }));
+  const onServerRated = onRated(rating =>
+    rateSessionAction({ sessionId: props.sessionId, rating })
+  );
+  const onServerReview = onReview(review =>
+    reviewSessionAction({ sessionId: props.sessionId, review })
+  );
 
-      if (!alreadyRated) setState('review');
+  createToastListener(
+    onServerRated(() => ({
+      title: `Rating submitted!`,
+      description: `Thanks for your feedback!`,
+      variant: 'success',
+      duration: 2000
+    })),
+    onServerReview(() => ({
+      title: `Review submitted!`,
+      description: `Thanks for your feedback!`,
+      variant: 'success',
+      duration: 2000
+    }))
+  );
 
-      showToast({
-        title: `Rating submitted!`,
-        description: `Thanks for your feedback!`,
-        variant: 'success',
-        duration: 2000
-      });
+  const state = createSubject(
+    `rating`,
+    onStateChange,
+    onRated(() => (hasRated() ? null : `review`))
+  );
 
-      await rateSessionAction({ sessionId: props.sessionId, rating });
-    } catch (err) {
-      showToast({
-        title: `Error`,
-        description: `err`,
-        variant: 'error',
-        duration: 2000
-      });
-    }
-  }
-
-  async function reviewTalk(review: string) {
-    try {
-      setSessionFeedback(s => ({ ...s, review }));
-
-      showToast({
-        title: `Review submitted!`,
-        description: `Thanks for your feedback!`,
-        variant: 'success',
-        duration: 2000
-      });
-
-      await reviewSessionAction({ sessionId: props.sessionId, review });
-    } catch (err) {
-      showToast({
-        title: `Error`,
-        description: `err`,
-        variant: 'error',
-        duration: 2000
-      });
-    }
-  }
+  const sessionFeedback = createSubject<SessionFeedback>(
+    {},
+    onServerFeedback,
+    onRated(rating => ({ rating })),
+    onReview(review => ({ review }))
+  );
+  const hasRated = () => !(sessionFeedback()?.rating === undefined);
 
   return (
     <div class="bg-white rounded-sm text-sm bg-opacity-10 text-center my-2 py-2">
@@ -195,21 +190,21 @@ function Feedback(props: { sessionId: string }) {
               <button
                 class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2 disabled:opacity-50 disabled:outline"
                 disabled={sessionFeedback()?.rating === 0}
-                onClick={() => rateTalk(0)}
+                onClick={() => emitRated(0)}
               >
                 <BsEmojiFrownFill />
               </button>
               <button
                 class="py-4 text-2xl flex justify-center bg-yellow-400 bg-opacity-50 rounded m-2 disabled:opacity-50 disabled:outline"
                 disabled={sessionFeedback()?.rating === 1}
-                onClick={() => rateTalk(1)}
+                onClick={() => emitRated(1)}
               >
                 <BsEmojiNeutralFill />
               </button>
               <button
                 class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2 disabled:opacity-50 disabled:outline"
                 disabled={sessionFeedback()?.rating === 2}
-                onClick={() => rateTalk(2)}
+                onClick={() => emitRated(2)}
               >
                 <BsEmojiSmileFill />
               </button>
@@ -217,7 +212,7 @@ function Feedback(props: { sessionId: string }) {
             <Show when={hasRated()}>
               <Button
                 class="text-xs flex items-center gap-1 m-auto"
-                onClick={() => setState('review')}
+                onClick={() => emitStateChange('review')}
               >
                 Review <FaSolidArrowRight />
               </Button>
@@ -241,7 +236,7 @@ function Feedback(props: { sessionId: string }) {
               onSubmit={async e => {
                 e.preventDefault();
                 const reviewEl = e.currentTarget.review as HTMLTextAreaElement;
-                await reviewTalk(reviewEl.value);
+                emitReview(reviewEl.value);
               }}
             >
               <textarea
@@ -256,7 +251,7 @@ function Feedback(props: { sessionId: string }) {
             </form>
             <Button
               class="text-xs flex items-center gap-1 m-auto"
-              onClick={() => setState('rating')}
+              onClick={() => emitStateChange('rating')}
             >
               <FaSolidArrowLeft /> Rating
             </Button>
@@ -265,4 +260,11 @@ function Feedback(props: { sessionId: string }) {
       </Show>
     </div>
   );
+}
+
+type ToastProps = Parameters<typeof showToast>[0];
+
+function createToastListener(...handlers: Handler<ToastProps>[]) {
+  const handler = createTopic(...handlers);
+  createListener(handler, showToast);
 }

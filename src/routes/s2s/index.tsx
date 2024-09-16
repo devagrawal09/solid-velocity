@@ -9,12 +9,12 @@ import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 export const route = {
   load() {
     getRequestSpeakerFn();
-    getSignedUpSpeakersFn();
     getSessionizeData();
+    getSignedUpSpeakersFn();
   }
 } satisfies RouteDefinition;
 
-export default function Home() {
+export default function SpeakerDashboardPage() {
   return (
     <main class="px-5">
       <Title>Speaker Dashboard | Momentum Developer Conference</Title>

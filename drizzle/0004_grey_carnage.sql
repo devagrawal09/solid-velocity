@@ -1,0 +1,1 @@
+ALTER TABLE "speaker-feedback-events" ADD COLUMN "timestamp" timestamp DEFAULT now() NOT NULL;

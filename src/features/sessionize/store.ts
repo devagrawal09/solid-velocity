@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { serverCache, storage } from '~/db';
+import { serverCache } from '~/db/kv';
 
 const roomSchema = z.object({
   id: z.number(),
