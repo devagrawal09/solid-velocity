@@ -10,7 +10,12 @@ import { Button } from '~/components/ui/button';
 import { showToast } from '~/components/ui/toast';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
-import { getFeedbackFn, getRequestSpeakerFn, submitFeedbackFn } from '~/features/speakers/api';
+import {
+  getAllAssignmentsFn,
+  getFeedbackFn,
+  getRequestSpeakerFn,
+  submitFeedbackFn
+} from '~/features/speakers/api';
 import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 import { SpeakerFeedbackFormData, speakerFeedbackFormSchema } from '~/features/speakers/store';
 import { createEvent, createListener, createTopic, Handler } from '~/lib/events';
@@ -20,6 +25,7 @@ export const route = {
     getRequestSpeakerFn();
     getSessionizeData();
     getFeedbackFn(params.sessionId);
+    getAllAssignmentsFn();
   }
 } satisfies RouteDefinition;
 
@@ -28,7 +34,7 @@ export default function SpeakerFeedbackPage() {
   const params = useParams<{ sessionId: string }>();
   const session = () => data()?.sessions.find(s => s.id === params.sessionId);
   const room = () => data()?.rooms.find(r => r.id === session()?.roomId);
-  const speaker = () =>
+  const sessionSpeaker = () =>
     data()?.speakers.filter(speaker => session()?.speakers.includes(speaker.id))[0];
 
   return (
@@ -84,7 +90,7 @@ export default function SpeakerFeedbackPage() {
 
               <p class="text-sm my-4">{session().description}</p>
 
-              <Show when={speaker()}>
+              <Show when={sessionSpeaker()}>
                 {speaker => (
                   <div class="flex items-center gap-2 px-1 py-1">
                     <img
@@ -117,9 +123,6 @@ function categoriesForSession(
 }
 
 function Feedback(props: { sessionId: string }) {
-  // const { clerk } = useClerk();
-  // const isSignedIn = createMemo(() => Boolean(clerk()?.user));
-
   const [onFormSubmit, submitForm] = createEvent<SpeakerFeedbackFormData>();
 
   const feedback = createAsync(() => getFeedbackFn(props.sessionId));
@@ -128,7 +131,7 @@ function Feedback(props: { sessionId: string }) {
   createEffect(() => console.log(`feedback`, feedback()));
 
   const onFeedbackSubmitted = onFormSubmit(data =>
-    submitFeedbackAction({ data, sessionId: props.sessionId }).catch(err => console.error(err))
+    submitFeedbackAction({ data, sessionId: props.sessionId })
   );
 
   const onFeedbackError = onFeedbackSubmitted(res => (res instanceof Error ? res : null));
@@ -183,8 +186,19 @@ function Feedback(props: { sessionId: string }) {
     }
   ];
 
+  const currentSpeaker = createAsync(() => getRequestSpeakerFn());
+
+  const allAssignments = createAsync(() => getAllAssignmentsFn(), { initialValue: {} });
+
+  const isAssigned = () => allAssignments()?.[props.sessionId]?.includes(currentSpeaker() || '');
+
   return (
-    <div class="bg-white rounded-sm text-sm bg-opacity-10 text-center my-2 py-2">
+    <div
+      class={clsx(
+        ' rounded-sm text-sm  text-center my-2 py-2',
+        isAssigned() ? 'bg-momentum' : 'bg-white bg-opacity-10'
+      )}
+    >
       <h2 class="text-xl font-semibold mb-2">Speaker Feedback Form</h2>
       <form
         class="p-2 flex flex-col gap-4 text-left"

@@ -1,6 +1,7 @@
 import { json, pgTable, PgTransaction, text, uuid, timestamp } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { getCachedData } from '../sessionize/store';
+import { asc } from 'drizzle-orm';
 
 export const speakerFeedbackFormSchema = z.object({
   rating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
@@ -28,11 +29,10 @@ export const speakerFeedbackEvents = pgTable(`speaker-feedback-events`, {
 export type SpeakerEvent = typeof speakerFeedbackEvents.$inferInsert;
 
 async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
-  return tx.select().from(speakerFeedbackEvents);
+  return tx.select().from(speakerFeedbackEvents).orderBy(asc(speakerFeedbackEvents.timestamp));
 }
 
 async function publishSpeakerEvent(events: SpeakerEvent[], tx: PgTransaction<any, any, any>) {
-  console.log({ events });
   await tx.insert(speakerFeedbackEvents).values(events);
   return events;
 }
@@ -199,18 +199,23 @@ export async function removeSpeaker(speakerId: string, tx: PgTransaction<any, an
   );
 }
 
-export async function getFeedback(sessionId: string, tx: PgTransaction<any, any, any>) {
+export async function getFeedback(
+  {
+    speakerId,
+    sessionId
+  }: {
+    speakerId: string;
+    sessionId: string;
+  },
+  tx: PgTransaction<any, any, any>
+) {
   const events = await getSpeakerEvents(tx);
 
-  return events.reduce(
-    (acc, event) => {
-      if (event.feedback.type === 'session-feedback' && event.feedback.sessionId === sessionId) {
-        return { ...event.feedback.data, timestamp: event.timestamp };
-      }
-
-      return acc;
-    },
-    {} as SpeakerFeedbackFormData & { timestamp: Date }
+  return events.filter(
+    event =>
+      event.feedback.type === 'session-feedback' &&
+      event.feedback.sessionId === sessionId &&
+      event.speakerId === speakerId
   );
 }
 

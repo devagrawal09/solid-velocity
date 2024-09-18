@@ -2,7 +2,7 @@ import { createContextProvider } from '@solid-primitives/context';
 import { createWritableMemo } from '@solid-primitives/memo';
 import { makePersisted } from '@solid-primitives/storage';
 import { useAction, createAsync } from '@solidjs/router';
-import { createEffect, createMemo } from 'solid-js';
+import { createMemo } from 'solid-js';
 import { getUserBookmarks, bookmarkSessionFn, unbookmarkSessionFn } from './api';
 import { useClerk } from 'clerk-solidjs';
 
@@ -21,8 +21,6 @@ export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     name: `bookmarks`
   });
-
-  createEffect(() => console.log(bookmarkedSessions()));
 
   function toggleBookmark(sessionId: string) {
     const bookmarked = bookmarkedSessions().find(b => b === sessionId);

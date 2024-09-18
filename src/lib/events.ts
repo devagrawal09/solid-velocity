@@ -1,4 +1,4 @@
-import { Observable, Subject, filter, map, mergeMap } from 'rxjs';
+import { Observable, Subject, filter, map, mergeMap, shareReplay } from 'rxjs';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 
 function nonNullable<T>(e: T): e is NonNullable<typeof e> {
@@ -12,18 +12,18 @@ type Emitter<E> = (e: E) => void;
 
 function makeHandler<E>($: Observable<E>): Handler<E> {
   function handler<O>(transform: (e: E) => Promise<O> | O): Handler<NonNullable<O>> {
-    const nextHandler = makeHandler<NonNullable<O>>(
-      handler.$.pipe(
-        mergeMap(p => {
-          const result = transform(p);
-          return result instanceof Promise ? result : [result];
-        }),
-        filter(nonNullable)
-      )
+    const next$ = $.pipe(
+      mergeMap(p => {
+        const result = transform(p);
+        return result instanceof Promise ? result : [result];
+      }),
+      filter(nonNullable),
+      shareReplay(1)
     );
 
-    return nextHandler;
+    return makeHandler<NonNullable<O>>(next$);
   }
+
   handler.$ = $;
   return handler;
 }

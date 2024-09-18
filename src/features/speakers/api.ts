@@ -74,7 +74,7 @@ export const getFeedbackFn = cache(async (sessionId: string) => {
 
   const speakerId = await getRequestSpeakerFn();
 
-  const result = await db.transaction(tx => getFeedback(sessionId, tx));
+  const result = await db.transaction(tx => getFeedback({ speakerId, sessionId }, tx));
 
   return result;
 }, 's2s/feedback');
