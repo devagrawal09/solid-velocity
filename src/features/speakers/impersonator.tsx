@@ -1,5 +1,5 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { action, createAsync, revalidate, useAction } from '@solidjs/router';
+import { action, createAsync, useAction } from '@solidjs/router';
 import { assertRequestAuth } from '~/auth';
 import {
   Select,
