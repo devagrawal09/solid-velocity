@@ -1,4 +1,4 @@
-import { A, useAction, createAsync } from '@solidjs/router';
+import { A, createAsync, useAction } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -6,13 +6,14 @@ import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { For, type ParentProps, Show, createMemo, createSignal } from 'solid-js';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
-import { getRequestSpeakerFn, getSignedUpSpeakersFn, signUpSpeakerFn } from './api';
-import { AssignmentComponent, AssignmentProvider, useAssignment } from './assignment';
-import { MySessionComponent } from './my-session';
-import { createEvent, createListener } from '~/lib/events';
 import { showToast } from '~/components/ui/toast';
-import { getSessionizeData } from '../sessionize/api';
 import type { Category, Session } from '~/features/sessionize/store';
+import { createEvent, createListener } from '~/lib/events';
+import { getSessionizeData } from '../sessionize/api';
+import { getRequestSpeakerFn, getSignedUpSpeakersFn, signUpSpeakerFn } from './api';
+import { AssignmentComponent } from './assignment';
+import { AssignmentProvider, useAssignment } from './context';
+import { MySessionComponent } from './my-session';
 
 type TimeSlot = [string, string, Session[]];
 
