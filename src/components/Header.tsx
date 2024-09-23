@@ -23,13 +23,13 @@ export default function Header() {
           </Button>
         </A>
       </Show>
-      <Show when={isSignedIn()}>
+      {/* <Show when={isSignedIn()}>
         <A href={`/attendee`} class="text-lg">
           <Button variant="link" class="text-white">
             Attendee Dashboard
           </Button>
         </A>
-      </Show>
+      </Show> */}
 
       <div class="grow"></div>
 

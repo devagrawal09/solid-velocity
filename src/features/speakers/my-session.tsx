@@ -58,7 +58,7 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
                 );
               }}
             </For>
-            <div class="flex flex-wrap gap-2">
+            {/* <div class="flex flex-wrap gap-2">
               <For each={data()?.categories}>
                 {category => (
                   <For each={categoriesForSession(category, props.session)}>
@@ -76,7 +76,7 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
                   </For>
                 )}
               </For>
-            </div>
+            </div> */}
           </div>
           <div class="flex flex-col gap-1 items-end">
             <Show when={isSpeakerSignedUp()}>
