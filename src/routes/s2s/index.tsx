@@ -7,7 +7,7 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 
 export const route = {
-  load() {
+  preload() {
     getRequestSpeakerFn();
     getSessionizeData();
     getSignedUpSpeakersFn();

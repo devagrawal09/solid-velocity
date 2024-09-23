@@ -18,9 +18,20 @@ export function AssignmentComponent(props: { sessionId: string }) {
   const { isAssigned } = useAssignment();
 
   return (
-    <Show when={isAssigned(props.sessionId)} fallback={<Unassigned sessionId={props.sessionId} />}>
-      <Assigned sessionId={props.sessionId} />
-    </Show>
+    <div class="flex flex-col justify-end items-end min-w-52 gap-2">
+      <Show
+        when={isAssigned(props.sessionId)}
+        fallback={<Unassigned sessionId={props.sessionId} />}
+      >
+        <Assigned sessionId={props.sessionId} />
+      </Show>
+
+      <A href={`/session/${props.sessionId}`}>
+        <Button size="sm" class="text-sm font-bold" variant="secondary">
+          Submit Feedback
+        </Button>
+      </A>
+    </div>
   );
 }
 
@@ -28,7 +39,7 @@ function Assigned(props: { sessionId: string }) {
   // const { emitUnassign } = useAssignment();
 
   return (
-    <div class="flex flex-col justify-around items-end">
+    <>
       {/* <Button
         onClick={() => emitUnassign(props.sessionId)}
         class="text-sm font-bold"
@@ -36,15 +47,10 @@ function Assigned(props: { sessionId: string }) {
       >
         Remove Assignment
       </Button> */}
-      <Button class="text-sm font-bold" variant="success" disabled>
+      <Button size="sm" class="text-sm font-bold cursor-not-allowed" variant="success" disabled>
         Assigned
       </Button>
-      <A href={`/s2s/${props.sessionId}`}>
-        <Button class="text-sm font-bold" variant="secondary">
-          Submit Feedback
-        </Button>
-      </A>
-    </div>
+    </>
   );
 }
 
@@ -52,42 +58,28 @@ function Unassigned(props: { sessionId: string }) {
   const { assignmentDisabled, emitAssign } = useAssignment();
 
   return (
-    <div class="flex flex-col justify-around items-end">
-      <Show
-        when={assignmentDisabled(props.sessionId)}
-        fallback={
-          <Button
-            onClick={() => emitAssign(props.sessionId)}
-            variant="success"
-            class="text-sm font-bold"
-          >
-            Assign to me
-          </Button>
-        }
-      >
-        {reason => (
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                onClick={() => emitAssign(props.sessionId)}
-                variant="success"
-                class="text-sm font-bold"
-                disabled
-              >
-                Assign to me
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{reason()}</TooltipContent>
-          </Tooltip>
-        )}
-      </Show>
-
-      <A href={`/s2s/${props.sessionId}`}>
-        <Button class="text-sm font-bold" variant="secondary">
-          Submit Feedback
+    <Show
+      when={assignmentDisabled(props.sessionId)}
+      fallback={
+        <Button
+          size="sm"
+          onClick={() => emitAssign(props.sessionId)}
+          variant="success"
+          class="text-sm font-bold"
+        >
+          Assign to me
         </Button>
-      </A>
-    </div>
+      }
+    >
+      {reason => (
+        <Tooltip openDelay={100}>
+          <TooltipTrigger class="text-sm font-bold h-9 rounded-md px-3 bg-success text-success-foreground opacity-50 cursor-not-allowed">
+            {reason()[0]}
+          </TooltipTrigger>
+          <TooltipContent>{reason()[1]}</TooltipContent>
+        </Tooltip>
+      )}
+    </Show>
   );
 }
 
@@ -122,23 +114,24 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
 
     const onToggleResult = createTopic(onAssignResult, onUnassignResult);
 
-    const assignmentDisabled = (sessionId: string) => {
-      if (assignments().length > 1) return `You cannot assign more than two sessions`;
+    const assignmentDisabled = (sessionId: string): [string, string] | undefined => {
+      if (assignments().length > 1)
+        return [`Assignment Limit Reached`, `You cannot assign more than two sessions`];
 
       const timeSlot = getSession(sessionId)?.startsAt;
       const assignedTimeSlots = assignments().map(id => getSession(id)?.startsAt);
       const timeSlotConflict = assignedTimeSlots.includes(timeSlot);
 
-      if (timeSlotConflict) return `You cannot assign two sessions at the same time slot`;
+      if (timeSlotConflict)
+        return [`Timeslot Conflict`, `You cannot assign two sessions at the same time slot`];
 
       const assignees = allAssignments()[sessionId];
 
-      if (assignees?.length > 1) return `Session already has two assignees`;
+      if (assignees?.length > 1)
+        return [`Session Limit Reached`, `Session already has two assignees`];
     };
 
-    createListener(onToggleResult, async result => {
-      const events = await result;
-
+    createListener(onToggleResult, async events => {
       if (events instanceof Error) {
         return showToast({
           title: events.message,

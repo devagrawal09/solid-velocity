@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     preset: 'vercel'
   },
-  ssr: true,
+  ssr: false,
   vite: {
     plugins: [
       devtools({

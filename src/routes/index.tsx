@@ -9,7 +9,7 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { SpeakerLandingAlert } from '~/features/speakers';
 
 export const route = {
-  load() {
+  preload() {
     getSessionizeData();
     getUserBookmarks();
   }

@@ -4,7 +4,7 @@ import { Suspense } from 'solid-js';
 import { AttendeeDashboard } from '~/features/attendee';
 
 export const route = {
-  load() {}
+  preload() {}
 } satisfies RouteDefinition;
 
 export default function Home() {

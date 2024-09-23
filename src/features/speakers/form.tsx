@@ -1,134 +1,53 @@
-import { Title } from '@solidjs/meta';
-import { createAsync, RouteDefinition, useAction, useParams } from '@solidjs/router';
+import { cache, createAsync, useAction } from '@solidjs/router';
 import { createForm } from '@tanstack/solid-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import clsx from 'clsx';
-import { format } from 'date-fns';
-import { FaSolidArrowUpShortWide, FaSolidClock, FaSolidMapPin, FaSolidTags } from 'solid-icons/fa';
-import { createEffect, For, Show, Suspense } from 'solid-js';
+import { createMemo, For } from 'solid-js';
+import { getFeedbackFn, submitFeedbackFn, getAllAssignmentsFn } from './api';
+import { getSignedUpSpeakers, SpeakerFeedbackFormData, speakerFeedbackFormSchema } from './store';
 import { Button } from '~/components/ui/button';
 import { showToast } from '~/components/ui/toast';
-import { getSessionizeData } from '~/features/sessionize/api';
-import { Category, Session } from '~/features/sessionize/store';
-import {
-  getAllAssignmentsFn,
-  getFeedbackFn,
-  getRequestSpeakerFn,
-  submitFeedbackFn
-} from '~/features/speakers/api';
-import { SpeakerImpersonator } from '~/features/speakers/impersonator';
-import { SpeakerFeedbackFormData, speakerFeedbackFormSchema } from '~/features/speakers/store';
-import { createEvent, createListener, createTopic, Handler } from '~/lib/events';
+import { Handler, createTopic, createListener, createEvent } from '~/lib/events';
+import { assertRequestAuth } from '~/auth';
+import { db } from '~/db/drizzle';
 
-export const route = {
-  load({ params }) {
-    getRequestSpeakerFn();
-    getSessionizeData();
-    getFeedbackFn(params.sessionId);
-    getAllAssignmentsFn();
-  }
-} satisfies RouteDefinition;
+export const getRequestSpeakerOrEmptyFn = cache(async () => {
+  'use server';
 
-export default function SpeakerFeedbackPage() {
-  const data = createAsync(() => getSessionizeData());
-  const params = useParams<{ sessionId: string }>();
-  const session = () => data()?.sessions.find(s => s.id === params.sessionId);
-  const room = () => data()?.rooms.find(r => r.id === session()?.roomId);
-  const sessionSpeaker = () =>
-    data()?.speakers.filter(speaker => session()?.speakers.includes(speaker.id))[0];
+  const { sessionClaims } = assertRequestAuth();
 
-  return (
-    <main class="px-5">
-      <Title>Speaker Feedback | Momentum Developer Conference</Title>
-      <Suspense fallback={<div>Loading...</div>}>
-        <Show when={session()} fallback={<div class="text-center">Loading...</div>}>
-          {session => (
-            <>
-              <div class="flex justify-between">
-                <h1 class="text-xl font-semibold my-4">{session().title}</h1>
-                <SpeakerImpersonator />
-              </div>
-              <Feedback sessionId={session().id} />
+  const speakerId = sessionClaims.publicMetadata.speakerId;
 
-              <div class="flex items-center gap-2">
-                <FaSolidMapPin />
-                <span class="">{room()?.name}</span>
-              </div>
+  if (speakerId) return speakerId;
+}, 'feedback/speakerId');
 
-              <div class="flex items-center gap-2">
-                <FaSolidClock />
-                <span class="text-sm">
-                  <Show when={session().startsAt} fallback="Not decided yet">
-                    {startsAt => format(new Date(startsAt()), 'h:mm a')}
-                  </Show>
-                </span>
-              </div>
-              <For each={data()?.categories}>
-                {category => (
-                  <div class="flex items-center gap-2">
-                    <Show when={category.title === `Level`} fallback={<FaSolidTags />}>
-                      <FaSolidArrowUpShortWide />
-                    </Show>
-                    <div>
-                      <For each={categoriesForSession(category, session())}>
-                        {item => (
-                          <span
-                            class={clsx(
-                              `text-sm px-2 mr-1 rounded bg-opacity-70 text-white`,
-                              category.title === 'Level' && 'bg-[#145bff]',
-                              category.title === 'Tags' && 'bg-[#03969b]'
-                            )}
-                          >
-                            {item.name}
-                          </span>
-                        )}
-                      </For>
-                    </div>
-                  </div>
-                )}
-              </For>
+export const getSignedUpSpeakersOrEmptyFn = cache(async () => {
+  'use server';
 
-              <p class="text-sm my-4">{session().description}</p>
+  const speakerId = await getRequestSpeakerOrEmptyFn();
 
-              <Show when={sessionSpeaker()}>
-                {speaker => (
-                  <div class="flex items-center gap-2 px-1 py-1">
-                    <img
-                      src={speaker().profilePicture}
-                      alt={speaker().tagLine}
-                      class="rounded-full"
-                      width={64}
-                      height={64}
-                    />
-                    <div>
-                      <p class="">{speaker().fullName}</p>
-                      <p class="text-xs">{speaker().tagLine}</p>
-                    </div>
-                  </div>
-                )}
-              </Show>
-            </>
-          )}
-        </Show>
-      </Suspense>
-    </main>
-  );
+  if (!speakerId) return [];
+
+  const speakers = await db.transaction(tx => getSignedUpSpeakers(tx));
+
+  if (speakers && speakers.includes(speakerId)) return speakers;
+}, 'feedback/speakers');
+
+export function createShowSpeakerFeedback(speakerId: () => string) {
+  const currentSpeakerId = createAsync(() => getRequestSpeakerOrEmptyFn());
+  const signedUpSpeakers = createAsync(() => getSignedUpSpeakersOrEmptyFn());
+
+  const isSessionSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
+  const isCurrentSpeakerSignedUp = () => signedUpSpeakers()?.includes(currentSpeakerId() || ``);
+
+  return createMemo(() => isSessionSpeakerSignedUp() && isCurrentSpeakerSignedUp());
 }
 
-function categoriesForSession(
-  category: Category,
-  session: Session
-): { sort: number; id: number; name: string }[] {
-  return category.items.filter(item => session.categoryItems.includes(item.id));
-}
-
-function Feedback(props: { sessionId: string }) {
+export function SpeakerFeedbackForm(props: { sessionId: string }) {
   const [onFormSubmit, submitForm] = createEvent<SpeakerFeedbackFormData>();
 
   const feedback = createAsync(() => getFeedbackFn(props.sessionId));
   const submitFeedbackAction = useAction(submitFeedbackFn);
-
-  createEffect(() => console.log(`feedback`, feedback()));
 
   const onFeedbackSubmitted = onFormSubmit(data =>
     submitFeedbackAction({ data, sessionId: props.sessionId })
@@ -186,7 +105,7 @@ function Feedback(props: { sessionId: string }) {
     }
   ];
 
-  const currentSpeaker = createAsync(() => getRequestSpeakerFn());
+  const currentSpeaker = createAsync(() => getRequestSpeakerOrEmptyFn());
 
   const allAssignments = createAsync(() => getAllAssignmentsFn(), { initialValue: {} });
 

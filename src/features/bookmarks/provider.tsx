@@ -24,7 +24,6 @@ export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
 
   function toggleBookmark(sessionId: string) {
     const bookmarked = bookmarkedSessions().find(b => b === sessionId);
-    console.log(bookmarked ? `removing` : `bookmarking`, sessionId, bookmarkedSessions());
 
     setBookmarks(bookmarks => {
       if (bookmarked) {

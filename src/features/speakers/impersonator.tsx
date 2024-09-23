@@ -40,7 +40,6 @@ export function SpeakerImpersonator() {
           value={selectedSpeaker()}
           onChange={async v => {
             if (!v) return;
-            console.log(selectedSpeaker()?.id, v.id);
             if (v.id === selectedSpeaker()?.id) return;
             await impersonateSpeakerAction(v.id);
             await clerk()?.session?.reload();

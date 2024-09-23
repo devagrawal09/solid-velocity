@@ -55,7 +55,7 @@ export function SpeakerDashboard() {
         <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
           <div class="flex items-center">
             <p class="my-4 grow">
-              <span class="text-xl">Sessions available for S2S</span>
+              <span class="text-xl">Available Sessions</span>
               <br />
               Please assign two sessions to yourself
             </p>
@@ -274,7 +274,7 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
               );
             }}
           </For>
-          <div class="flex flex-wrap gap-2">
+          {/* <div class="flex flex-wrap gap-2">
             <For each={data()?.categories}>
               {category => (
                 <For each={categoriesForSession(category, props.session)}>
@@ -292,7 +292,7 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
                 </For>
               )}
             </For>
-          </div>
+          </div> */}
         </div>
         <AssignmentComponent sessionId={props.session.id} />
       </div>

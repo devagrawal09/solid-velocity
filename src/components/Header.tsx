@@ -1,5 +1,5 @@
 import { A } from '@solidjs/router';
-import { Show, createEffect, createMemo } from 'solid-js';
+import { Show } from 'solid-js';
 import logoImg from '../logo.svg';
 import { Button } from './ui/button';
 import { SignInButton, useClerk, UserButton } from 'clerk-solidjs';
@@ -7,9 +7,8 @@ import { SignInButton, useClerk, UserButton } from 'clerk-solidjs';
 export default function Header() {
   const clerk = useClerk();
 
-  const isSignedIn = createMemo(() => Boolean(clerk()?.user));
-  createEffect(() => console.log('user', clerk()?.user));
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
+  const isSignedIn = () => !!clerk()?.user;
 
   return (
     <header class="flex items-center px-4 gap-4">
@@ -34,7 +33,7 @@ export default function Header() {
 
       <div class="grow"></div>
 
-      <Show when={isSignedIn()} fallback={<SignInButton>Login</SignInButton>}>
+      <Show when={isSignedIn()} fallback={<SignInButton>Sign In</SignInButton>}>
         <UserButton />
       </Show>
     </header>

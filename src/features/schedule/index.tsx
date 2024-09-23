@@ -21,7 +21,6 @@ export function Schedule() {
   const data = createAsyncStore(() => getSessionizeData(), {
     initialValue: { sessions: [], speakers: [], rooms: [], categories: [] }
   });
-  // createEffect(() => console.log(data()));
 
   const untimedSessions = createMemo(() => data()?.sessions.filter(s => !s.startsAt));
 
