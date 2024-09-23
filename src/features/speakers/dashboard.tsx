@@ -20,7 +20,7 @@ import { AssignmentComponent } from './assignment';
 import { AssignmentProvider, useAssignment } from './context';
 import { MySessionComponent } from './my-session';
 import { Button } from '~/components/ui/button';
-import { adminMode } from '../admin';
+import { useAdmin } from '../admin';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -55,6 +55,7 @@ export function SpeakerDashboard() {
     }, []);
 
   const mySession = () => data()?.sessions.find(session => session.speakers.includes(speakerId()));
+  const { showAdminUi } = useAdmin();
 
   return (
     <>
@@ -67,7 +68,7 @@ export function SpeakerDashboard() {
               <br />
               Please assign two sessions to yourself
             </p>
-            <Show when={adminMode()}>
+            <Show when={showAdminUi()}>
               <OptOut />
             </Show>
           </div>

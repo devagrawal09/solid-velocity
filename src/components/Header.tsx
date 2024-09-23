@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { SignInButton, useClerk, UserButton } from 'clerk-solidjs';
 import { FaSolidScrewdriverWrench } from 'solid-icons/fa';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { adminMode, toggleAdminMode } from '~/features/admin';
+import { useAdmin, toggleAdminMode } from '~/features/admin';
 
 export default function Header() {
   const clerk = useClerk();
@@ -13,7 +13,7 @@ export default function Header() {
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
   const isSignedIn = () => !!clerk()?.user;
 
-  const isAdmin = () => clerk()?.user?.publicMetadata.role === 'admin';
+  const { showAdminUi, isUserAdmin } = useAdmin();
 
   return (
     <header class="flex items-center px-4 gap-4">
@@ -28,7 +28,7 @@ export default function Header() {
           </Button>
         </A>
       </Show>
-      <Show when={isSignedIn() && adminMode()}>
+      <Show when={isSignedIn() && showAdminUi()}>
         <A href={`/attendee`} class="text-lg">
           <Button variant="link" class="text-white">
             Attendee Dashboard
@@ -38,14 +38,18 @@ export default function Header() {
 
       <div class="grow"></div>
 
-      <Show when={isAdmin()}>
+      <Show when={isUserAdmin()}>
         <Tooltip openDelay={100} closeDelay={200}>
           <TooltipTrigger>
-            <Button variant={adminMode() ? `success` : `default`} onClick={toggleAdminMode}>
-              <FaSolidScrewdriverWrench />
+            <Button variant={showAdminUi() ? `destructive` : `ghost`} onClick={toggleAdminMode}>
+              <FaSolidScrewdriverWrench size={20} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Toogle Admin Mode</TooltipContent>
+          <TooltipContent>
+            <Show when={showAdminUi()} fallback={`Enable Admin Mode`}>
+              Disable Admin Mode
+            </Show>
+          </TooltipContent>
         </Tooltip>
       </Show>
       <Show when={isSignedIn()} fallback={<SignInButton>Sign In</SignInButton>}>

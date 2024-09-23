@@ -12,7 +12,7 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { Speaker } from '../sessionize/store';
 import { Show } from 'solid-js';
 import { useClerk } from 'clerk-solidjs';
-import { adminMode } from '../admin';
+import { useAdmin } from '../admin';
 
 const impersonateSpeaker = action(async (speakerId: string) => {
   'use server';
@@ -28,13 +28,13 @@ export function SpeakerImpersonator() {
   const impersonateSpeakerAction = useAction(impersonateSpeaker);
   const clerk = useClerk();
 
-  const isAdmin = () => clerk()?.user?.publicMetadata.role === 'admin';
+  const { showAdminUi } = useAdmin();
 
   const selectedSpeaker = () =>
     sessionizeData()?.speakers.find(s => clerk()?.user?.publicMetadata.speakerId === s.id);
 
   return (
-    <Show when={isAdmin() && adminMode()}>
+    <Show when={showAdminUi()}>
       <div class="border border-red-800 p-2 rounded text-red-200">
         Currently Impersonating
         <Select
