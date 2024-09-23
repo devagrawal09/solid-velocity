@@ -1,5 +1,5 @@
 import { action, cache, redirect } from '@solidjs/router';
-import { getRequestAuth } from '~/auth';
+import { assertRequestAdmin, getRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
 import {
   assignSpeakerToSession,
@@ -8,9 +8,11 @@ import {
   getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
+  removeSpeaker,
   signUpSpeaker,
   SpeakerFeedbackFormData,
-  submitFeedback
+  submitFeedback,
+  unassignSpeakerFromSession
 } from './store';
 
 export const getRequestSpeakerFn = cache(async () => {
@@ -102,27 +104,27 @@ export const assignToSessionFn = action(async (sessionId: string) => {
 export const unassignFromSessionFn = action(async (sessionId: string) => {
   'use server';
 
-  // const speakerId = await getRequestSpeakerFn();
+  assertRequestAdmin();
 
-  // const result = await db.transaction(tx =>
-  //   unassignSpeakerFromSession({ speakerId, sessionId }, tx)
-  // );
+  const speakerId = await getRequestSpeakerFn();
 
-  // return result;
+  const result = await db.transaction(tx =>
+    unassignSpeakerFromSession({ speakerId, sessionId }, tx)
+  );
 
-  throw new Error('Not allowed');
+  return result;
 });
 
 export const removeSpeakerFn = action(async () => {
   'use server';
 
-  // const speakerId = await getRequestSpeakerFn();
+  assertRequestAdmin();
 
-  // const result = await db.transaction(tx => removeSpeaker(speakerId, tx));
+  const speakerId = await getRequestSpeakerFn();
 
-  // return result;
+  const result = await db.transaction(tx => removeSpeaker(speakerId, tx));
 
-  throw new Error('Not allowed');
+  return result;
 });
 
 export const submitFeedbackFn = action(

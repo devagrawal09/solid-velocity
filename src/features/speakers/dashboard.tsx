@@ -10,10 +10,17 @@ import { showToast } from '~/components/ui/toast';
 import type { Category, Session } from '~/features/sessionize/store';
 import { createEvent, createListener } from '~/lib/events';
 import { getSessionizeData } from '../sessionize/api';
-import { getRequestSpeakerFn, getSignedUpSpeakersFn, signUpSpeakerFn } from './api';
+import {
+  getRequestSpeakerFn,
+  getSignedUpSpeakersFn,
+  removeSpeakerFn,
+  signUpSpeakerFn
+} from './api';
 import { AssignmentComponent } from './assignment';
 import { AssignmentProvider, useAssignment } from './context';
 import { MySessionComponent } from './my-session';
+import { Button } from '~/components/ui/button';
+import { adminMode } from '../admin';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -60,7 +67,9 @@ export function SpeakerDashboard() {
               <br />
               Please assign two sessions to yourself
             </p>
-            {/* <OptOut /> */}
+            <Show when={adminMode()}>
+              <OptOut />
+            </Show>
           </div>
           <AssignmentProvider>
             <Show
@@ -142,14 +151,12 @@ function TimeSlotComponent(props: { slot: TimeSlot }) {
   );
 }
 
-/* function OptOut() {
+function OptOut() {
   const [onOptOut, emitOptOut] = createEvent();
   const removeSpeakerAction = useAction(removeSpeakerFn);
   const onOptOutResult = onOptOut(removeSpeakerAction);
 
-  createListener(onOptOutResult, async result => {
-    const res = (await result) as any[];
-
+  createListener(onOptOutResult, async res => {
     if (res instanceof Error) {
       return showToast({
         title: res.message,
@@ -176,7 +183,7 @@ function TimeSlotComponent(props: { slot: TimeSlot }) {
       Opt-out of S2S
     </Button>
   );
-} */
+}
 
 function OptIn() {
   const [onOptIn, emitOptIn] = createEvent();

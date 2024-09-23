@@ -1,4 +1,4 @@
-import type { AuthObject } from '@clerk/backend/dist/types';
+import type { AuthObject } from '@clerk/backend';
 import { getRequestEvent } from 'solid-js/web';
 
 export function getRequestAuth() {
@@ -21,4 +21,14 @@ export function assertRequestAuth() {
   }
 
   throw new Error('Invalid request');
+}
+
+export function assertRequestAdmin() {
+  'use server';
+
+  const auth = assertRequestAuth();
+
+  if (auth.sessionClaims.publicMetadata.role !== 'admin') throw new Error('Not authorized');
+
+  return auth;
 }
