@@ -4,6 +4,7 @@ import { type ParentProps, createMemo, For, Show } from 'solid-js';
 import { getRequestSpeakerFn, getSessionAssigneesFn, getSignedUpSpeakersFn } from './api';
 import type { Category, Session } from '../sessionize/store';
 import { getSessionizeData } from '../sessionize/api';
+import { format } from 'date-fns';
 
 export function MySessionComponent(props: ParentProps<{ session: Session }>) {
   const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
@@ -20,6 +21,10 @@ export function MySessionComponent(props: ParentProps<{ session: Session }>) {
   return (
     <>
       <p class="text-lg my-4">Your Session</p>
+      <h2 class="text-sm">
+        {format(new Date(props.session.startsAt || ``), 'h:mm a')} to{' '}
+        {format(new Date(props.session.endsAt || ``), 'h:mm a')}
+      </h2>
       <div class={clsx('border rounded-xl p-3 my-2 border-gray-700')}>
         <div class="flex">
           <div class="grow flex flex-col gap-2">

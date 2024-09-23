@@ -10,6 +10,7 @@ import { createEvent, createListener, createSubject, createTopic } from '~/lib/e
 import {
   assignToSessionFn,
   getAllAssignmentsFn,
+  getRequestSpeakerFn,
   getSpeakerAssignmentsFn,
   unassignFromSessionFn
 } from './api';
@@ -91,6 +92,10 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
     const data = createAsync(() => getSessionizeData());
     const allAssignments = createAsync(() => getAllAssignmentsFn(), { initialValue: {} });
 
+    const speakerId = createAsync(() => getRequestSpeakerFn());
+    const mySession = () =>
+      data()?.sessions.find(session => session.speakers.includes(speakerId() || ``));
+
     const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
 
     const localAssignments = createSubject(
@@ -129,6 +134,11 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
 
       if (assignees?.length > 1)
         return [`Session Limit Reached`, `Session already has two assignees`];
+
+      const myTimeSlot = mySession()?.startsAt;
+      const myTimeSlotConflict = timeSlot === myTimeSlot;
+      if (myTimeSlotConflict)
+        return [`Timeslot Conflict`, `You cannot assign a session at your timeslot`];
     };
 
     createListener(onToggleResult, async events => {
