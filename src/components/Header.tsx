@@ -22,7 +22,7 @@ export default function Header() {
       </A>
 
       <Show when={speakerId()}>
-        <A href={`/s2s`} class="text-lg">
+        <A href={`/speaker`} class="text-lg">
           <Button variant="link" class="text-white">
             Speaker Dashboard
           </Button>

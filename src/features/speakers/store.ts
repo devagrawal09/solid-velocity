@@ -5,10 +5,10 @@ import { asc } from 'drizzle-orm';
 
 export const speakerFeedbackFormSchema = z.object({
   rating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
-  why: z.string().min(5),
-  fav: z.string().min(5),
-  improve: z.string().min(5),
-  comments: z.string().min(5)
+  why: z.string().min(3, `Response must be atleast 3 characters long`),
+  fav: z.string().min(3, `Response must be atleast 3 characters long`),
+  improve: z.string().min(3, `Response must be atleast 3 characters long`),
+  comments: z.string().min(3, `Response must be atleast 3 characters long`)
 });
 export type SpeakerFeedbackFormData = z.infer<typeof speakerFeedbackFormSchema>;
 

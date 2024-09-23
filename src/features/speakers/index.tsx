@@ -17,7 +17,7 @@ export function SpeakerLandingAlert() {
           You can view{' '}
           <A
             onClick={() => setSpeakerVisited(true)}
-            href="/s2s"
+            href="/speaker"
             class="underline text-gray-500 hover:text-gray-900"
           >
             your speaker dashboard here

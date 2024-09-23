@@ -1,4 +1,4 @@
-import { A, createAsync, useAction } from '@solidjs/router';
+import { A, createAsync, useAction, useSubmission } from '@solidjs/router';
 import clsx from 'clsx';
 import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -156,6 +156,7 @@ function OptOut() {
   const [onOptOut, emitOptOut] = createEvent();
   const removeSpeakerAction = useAction(removeSpeakerFn);
   const onOptOutResult = onOptOut(removeSpeakerAction);
+  const removeSpeakerSubmission = useSubmission(removeSpeakerFn);
 
   createListener(onOptOutResult, async res => {
     if (res instanceof Error) {
@@ -180,7 +181,13 @@ function OptOut() {
   });
 
   return (
-    <Button class="text-xs font-bold" size="xs" variant="destructive" onClick={emitOptOut}>
+    <Button
+      class="text-xs font-bold"
+      size="xs"
+      variant="destructive"
+      onClick={emitOptOut}
+      disabled={removeSpeakerSubmission.pending}
+    >
       Opt-out of S2S
     </Button>
   );
@@ -191,9 +198,9 @@ function OptIn() {
   const signUpSpeakerAction = useAction(signUpSpeakerFn);
   const onOptInResult = onOptIn(signUpSpeakerAction);
 
-  createListener(onOptInResult, async result => {
-    const res = await result;
+  const signUpSpeakerSubmission = useSubmission(signUpSpeakerFn);
 
+  createListener(onOptInResult, async res => {
     if (res instanceof Error) {
       return showToast({
         title: res.message,
@@ -218,15 +225,16 @@ function OptIn() {
   return (
     <>
       <p class="text-lg my-4">Speaker-to-speaker Feedback Program</p>
-      <p class="my-4">Placeholder info</p>
+      <p class="my-4">The Speaker-to-speaker feedback program</p>
 
-      <button
+      <Button
         type="submit"
-        class="text-white bg-momentum rounded-xl px-4 py-2 hover:bg-opacity-70"
+        class="bg-momentum"
         onClick={emitOptIn}
+        disabled={signUpSpeakerSubmission.pending}
       >
         I wanna participate!
-      </button>
+      </Button>
     </>
   );
 }

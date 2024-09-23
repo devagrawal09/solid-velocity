@@ -8,6 +8,7 @@ import { AttendeeFeedbackForm } from '~/features/feedback';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
 import { createShowSpeakerFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
+import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 
 export const route = {
   preload() {
@@ -33,7 +34,10 @@ export default function SessionPage() {
     <Show when={session()}>
       {session => (
         <main class="px-5">
-          <h1 class="text-xl font-semibold my-4">{session().title}</h1>
+          <div class="flex justify-between">
+            <h1 class="text-xl font-semibold my-4">{session().title}</h1>
+            <SpeakerImpersonator />
+          </div>
 
           {/* TODO: Only show this after the talk has ended */}
           <Show

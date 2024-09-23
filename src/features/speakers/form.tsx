@@ -1,8 +1,8 @@
-import { cache, createAsync, useAction } from '@solidjs/router';
+import { cache, createAsync, useAction, useSubmission } from '@solidjs/router';
 import { createForm } from '@tanstack/solid-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import clsx from 'clsx';
-import { createMemo, For } from 'solid-js';
+import { createEffect, createMemo, For, Show } from 'solid-js';
 import { getFeedbackFn, submitFeedbackFn, getAllAssignmentsFn } from './api';
 import { getSignedUpSpeakers, SpeakerFeedbackFormData, speakerFeedbackFormSchema } from './store';
 import { Button } from '~/components/ui/button';
@@ -10,6 +10,7 @@ import { showToast } from '~/components/ui/toast';
 import { Handler, createTopic, createListener, createEvent } from '~/lib/events';
 import { assertRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
+import { format } from 'date-fns';
 
 export const getRequestSpeakerOrEmptyFn = cache(async () => {
   'use server';
@@ -46,8 +47,11 @@ export function createShowSpeakerFeedback(speakerId: () => string) {
 export function SpeakerFeedbackForm(props: { sessionId: string }) {
   const [onFormSubmit, submitForm] = createEvent<SpeakerFeedbackFormData>();
 
-  const feedback = createAsync(() => getFeedbackFn(props.sessionId));
+  const feedbackSubmissions = createAsync(() => getFeedbackFn(props.sessionId), {
+    initialValue: []
+  });
   const submitFeedbackAction = useAction(submitFeedbackFn);
+  const submitFeedbackSubmission = useSubmission(submitFeedbackFn);
 
   const onFeedbackSubmitted = onFormSubmit(data =>
     submitFeedbackAction({ data, sessionId: props.sessionId })
@@ -71,14 +75,15 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
     }))
   );
 
+  const latestFeedback = () => feedbackSubmissions()[feedbackSubmissions().length - 1];
+
+  const latestFeedbackData = () => {
+    const latestEvent = latestFeedback();
+    if (latestEvent?.feedback.type === 'session-feedback') return latestEvent.feedback.data;
+  };
+
   const form = createForm<SpeakerFeedbackFormData>(() => ({
-    defaultValues: {
-      rating: 3,
-      why: ``,
-      fav: ``,
-      improve: ``,
-      comments: ``
-    },
+    defaultValues: latestFeedbackData(),
     onSubmit: ({ value }) => submitForm(value)
   }));
 
@@ -114,16 +119,42 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
   return (
     <div
       class={clsx(
-        ' rounded-sm text-sm  text-center my-2 py-2',
+        'rounded-sm text-sm  text-center my-2 py-2',
         isAssigned() ? 'bg-momentum' : 'bg-white bg-opacity-10'
       )}
     >
       <h2 class="text-xl font-semibold mb-2">Speaker Feedback Form</h2>
+
+      <Show
+        when={latestFeedback()}
+        fallback={
+          <Show
+            when={isAssigned()}
+            fallback={
+              <h3>
+                You have not assigned this session to yourself for speaker-to-speaker feedback. You
+                can still submit the feedback form.
+              </h3>
+            }
+          >
+            <h3>
+              You have assigned this session to yourself for speaker-to-speaker feedback. You must
+              submit the feedback form.
+            </h3>
+          </Show>
+        }
+      >
+        {feedback => (
+          <h3 class="font-bold">Last submitted: {format(feedback().timestamp, 'h:mm a, MMM d')}</h3>
+        )}
+      </Show>
+
       <form
         class="p-2 flex flex-col gap-4 text-left"
         onSubmit={e => {
           e.preventDefault();
           e.stopPropagation();
+          if (submitFeedbackSubmission.pending) return;
           form.handleSubmit();
         }}
       >
@@ -131,7 +162,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           name="rating"
           validatorAdapter={zodValidator()}
           validators={{
-            onChange: speakerFeedbackFormSchema.shape.rating
+            onBlur: speakerFeedbackFormSchema.shape.rating
           }}
           children={field => (
             <div class="flex flex-col gap-2">
@@ -144,7 +175,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
                         class="appearance-none peer h-0"
                         type="radio"
                         name={field().name}
-                        value={field().state.value}
+                        value={field().state.value || ''}
                         checked={field().state.value === parseInt(rating.value)}
                         onChange={e => field().handleChange(parseInt(rating.value) as any)}
                         id={rating.value}
@@ -169,14 +200,14 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           name="why"
           validatorAdapter={zodValidator()}
           validators={{
-            onChange: speakerFeedbackFormSchema.shape.why
+            onBlur: speakerFeedbackFormSchema.shape.why
           }}
           children={field => (
             <div class="flex flex-col gap-2">
               <label for={field().name}>Why did you choose to attend this session?</label>
               <textarea
                 id={field().name}
-                value={field().state.value}
+                value={field().state.value || ''}
                 onBlur={field().handleBlur}
                 onInput={e => field().handleChange(e.target.value)}
                 class="text-black px-3 py-2 rounded"
@@ -191,7 +222,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           name="fav"
           validatorAdapter={zodValidator()}
           validators={{
-            onChange: speakerFeedbackFormSchema.shape.fav
+            onBlur: speakerFeedbackFormSchema.shape.fav
           }}
           children={field => (
             <div class="flex flex-col gap-2">
@@ -204,7 +235,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
               </label>
               <textarea
                 id={field().name}
-                value={field().state.value}
+                value={field().state.value || ''}
                 onBlur={field().handleBlur}
                 onInput={e => field().handleChange(e.target.value)}
                 class="text-black px-3 py-2 rounded"
@@ -219,7 +250,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           name="improve"
           validatorAdapter={zodValidator()}
           validators={{
-            onChange: speakerFeedbackFormSchema.shape.improve
+            onBlur: speakerFeedbackFormSchema.shape.improve
           }}
           children={field => (
             <div class="flex flex-col gap-2">
@@ -228,7 +259,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
               </label>
               <textarea
                 id={field().name}
-                value={field().state.value}
+                value={field().state.value || ''}
                 onBlur={field().handleBlur}
                 onInput={e => field().handleChange(e.target.value)}
                 class="text-black px-3 py-2 rounded"
@@ -243,14 +274,14 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           name="comments"
           validatorAdapter={zodValidator()}
           validators={{
-            onChange: speakerFeedbackFormSchema.shape.comments
+            onBlur: speakerFeedbackFormSchema.shape.comments
           }}
           children={field => (
             <div class="flex flex-col gap-2">
               <label for={field().name}>Any other comments for the speaker?</label>
               <textarea
                 id={field().name}
-                value={field().state.value}
+                value={field().state.value || ''}
                 onBlur={field().handleBlur}
                 onInput={e => field().handleChange(e.target.value)}
                 class="text-black px-3 py-2 rounded"
@@ -262,7 +293,11 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           )}
         />
 
-        <Button type="submit" class="bg-momentum rounded m-auto py-2 px-4">
+        <Button
+          type="submit"
+          class="bg-momentum rounded m-auto py-2 px-4"
+          disabled={submitFeedbackSubmission.pending}
+        >
           Submit
         </Button>
       </form>
