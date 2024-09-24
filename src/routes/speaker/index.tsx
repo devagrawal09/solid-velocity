@@ -16,7 +16,7 @@ export const route = {
 
 export default function SpeakerDashboardPage() {
   return (
-    <main class="px-5">
+    <main class="px-2 sm:px-5">
       <Title>Speaker Dashboard | Momentum Developer Conference</Title>
       <div class="flex justify-between">
         <h1 class="text-4xl font-semibold my-4">Speaker Dashboard</h1>

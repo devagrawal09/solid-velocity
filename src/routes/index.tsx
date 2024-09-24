@@ -20,7 +20,7 @@ export default function Home() {
   const speakerId = () => clerk()?.user?.publicMetadata.speakerId;
 
   return (
-    <main class="px-5">
+    <main class="px-2 sm:px-5">
       <Title>Schedule | Momentum Developer Conference</Title>
       <Show when={speakerId()}>
         <SpeakerLandingAlert />

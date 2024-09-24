@@ -63,7 +63,7 @@ export default function Home() {
   };
 
   return (
-    <main class="px-5">
+    <main class="px-2 sm:px-5">
       <Title>Schedule | Momentum Developer Conference</Title>
       <main class="flex-1 overflow-auto p-6">
         <div class="border rounded-lg overflow-hidden">

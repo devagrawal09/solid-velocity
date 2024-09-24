@@ -9,7 +9,7 @@ export const route = {
 
 export default function Home() {
   return (
-    <main class="px-5">
+    <main class="px-2 sm:px-5">
       <Title>Attendee Dashboard | Momentum Developer Conference</Title>
       <div class="flex justify-between">
         <h1 class="text-4xl font-semibold my-4">Attendee Dashboard</h1>

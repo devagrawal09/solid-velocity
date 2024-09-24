@@ -3,7 +3,7 @@ import { SignInButton, useClerk } from 'clerk-solidjs';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { FaSolidArrowUpShortWide, FaSolidClock, FaSolidMapPin, FaSolidTags } from 'solid-icons/fa';
-import { For, Show } from 'solid-js';
+import { For, Show, Suspense } from 'solid-js';
 import { AttendeeFeedbackForm } from '~/features/feedback';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
@@ -33,35 +33,38 @@ export default function SessionPage() {
   return (
     <Show when={session()}>
       {session => (
-        <main class="px-5">
+        <main class="px-2 sm:px-5">
           <div class="flex justify-between">
             <h1 class="text-xl font-semibold my-4">{session().title}</h1>
             <SpeakerImpersonator />
           </div>
 
           {/* TODO: Only show this after the talk has ended */}
-          <Show
-            when={isSignedIn()}
-            fallback={
-              <div class="bg-white rounded-sm text-sm bg-opacity-10 text-center my-2 py-2">
-                <SignInButton class="hover:underline">Sign in to provide feedback</SignInButton>
-              </div>
-            }
+          <Suspense
+            fallback={<div class="h-20 animate-pulse bg-white bg-opacity-10 rounded-sm mb-2" />}
           >
-            {_ => {
-              const showS2sForm = createShowSpeakerFeedback(() => speaker()?.id || ``);
+            <Show
+              when={isSignedIn()}
+              fallback={
+                <div class="bg-white rounded-sm text-sm bg-opacity-10 text-center my-2 py-2">
+                  <SignInButton class="hover:underline">Sign in to provide feedback</SignInButton>
+                </div>
+              }
+            >
+              {_ => {
+                const showS2sForm = createShowSpeakerFeedback(() => speaker()?.id || ``);
 
-              return (
-                <Show
-                  when={showS2sForm()}
-                  fallback={<AttendeeFeedbackForm sessionId={session().id} />}
-                >
-                  <SpeakerFeedbackForm sessionId={session().id} />
-                </Show>
-              );
-            }}
-          </Show>
-
+                return (
+                  <Show
+                    when={showS2sForm()}
+                    fallback={<AttendeeFeedbackForm sessionId={session().id} />}
+                  >
+                    <SpeakerFeedbackForm sessionId={session().id} />
+                  </Show>
+                );
+              }}
+            </Show>
+          </Suspense>
           <div class="flex items-center gap-2">
             <FaSolidMapPin />
             <span class="">{room()?.name}</span>
