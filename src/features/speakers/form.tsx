@@ -2,15 +2,17 @@ import { cache, createAsync, useAction, useSubmission } from '@solidjs/router';
 import { createForm } from '@tanstack/solid-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import clsx from 'clsx';
-import { createEffect, createMemo, For, Show } from 'solid-js';
-import { getFeedbackFn, submitFeedbackFn, getAllAssignmentsFn } from './api';
-import { getSignedUpSpeakers, SpeakerFeedbackFormData, speakerFeedbackFormSchema } from './store';
-import { Button } from '~/components/ui/button';
-import { showToast } from '~/components/ui/toast';
-import { Handler, createTopic, createListener, createEvent } from '~/lib/events';
-import { assertRequestAuth } from '~/auth';
-import { db } from '~/db/drizzle';
 import { format } from 'date-fns';
+import { createMemo, For, Show } from 'solid-js';
+import { assertRequestAuth } from '~/auth';
+import { Button } from '~/components/ui/button';
+import { db } from '~/db/drizzle';
+import { createEvent } from '~/lib/events';
+import { createToastListener } from '~/lib/toast';
+import { getAllAssignmentsFn, getFeedbackFn, submitFeedbackFn } from './api';
+import { getSignedUpSpeakers, SpeakerFeedbackFormData, speakerFeedbackFormSchema } from './store';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { BiRegularHelpCircle } from 'solid-icons/bi';
 
 export const getRequestSpeakerOrEmptyFn = cache(async () => {
   'use server';
@@ -123,6 +125,19 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
         isAssigned() ? 'bg-momentum' : 'bg-white bg-opacity-10'
       )}
     >
+      <Tooltip>
+        <TooltipTrigger class="float-end mx-2 h-0">
+          <BiRegularHelpCircle size={25} />
+        </TooltipTrigger>
+        <TooltipContent class="w-80">
+          The Speaker Feedback Form replaces the regular feedback form for sessions that are
+          available for the Speaker-to-speaker feedback program. If you assigned this session to
+          yourself, you are required to submit feedback through this form. If you have not assigned
+          this session, you are free to still attend this session and submit your feedback through
+          this form. Once submitted, you can update your response as well.
+        </TooltipContent>
+      </Tooltip>
+
       <h2 class="text-xl font-semibold mb-2">Speaker Feedback Form</h2>
 
       <Show
@@ -148,7 +163,6 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
           <h3 class="font-bold">Last submitted: {format(feedback().timestamp, 'h:mm a, MMM d')}</h3>
         )}
       </Show>
-
       <form
         class="p-2 flex flex-col gap-4 text-left"
         onSubmit={e => {
@@ -303,11 +317,4 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
       </form>
     </div>
   );
-}
-
-type ToastProps = Parameters<typeof showToast>[0];
-
-function createToastListener(...handlers: Handler<ToastProps>[]) {
-  const handler = createTopic(...handlers);
-  createListener(handler, showToast);
 }

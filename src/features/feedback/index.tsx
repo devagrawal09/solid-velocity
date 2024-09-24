@@ -3,15 +3,8 @@ import { BsEmojiFrownFill, BsEmojiNeutralFill, BsEmojiSmileFill } from 'solid-ic
 import { FaSolidArrowLeft, FaSolidArrowRight } from 'solid-icons/fa';
 import { Match, Show, Switch } from 'solid-js';
 import { Button } from '~/components/ui/button';
-import { showToast } from '~/components/ui/toast';
-import {
-  createEmitter,
-  createEvent,
-  createListener,
-  createSubject,
-  createTopic,
-  Handler
-} from '~/lib/events';
+import { createEmitter, createEvent, createSubject } from '~/lib/events';
+import { createToastListener } from '~/lib/toast';
 import { getSessionFeedback, rateSessionFn, reviewSessionFn } from './api';
 import { Rating } from './store';
 
@@ -146,11 +139,4 @@ export function AttendeeFeedbackForm(props: { sessionId: string }) {
       </Switch>
     </div>
   );
-}
-
-type ToastProps = Parameters<typeof showToast>[0];
-
-function createToastListener(...handlers: Handler<ToastProps>[]) {
-  const handler = createTopic(...handlers);
-  createListener(handler, showToast);
 }

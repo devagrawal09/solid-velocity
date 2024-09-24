@@ -4,9 +4,12 @@ import devtools from 'solid-devtools/vite';
 export default defineConfig({
   middleware: './src/middleware.ts',
   server: {
-    preset: 'vercel'
+    preset: 'vercel',
+    prerender: {
+      routes: ['/']
+    }
   },
-  ssr: false,
+  ssr: true,
   vite: {
     plugins: [
       devtools({

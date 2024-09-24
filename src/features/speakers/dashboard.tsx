@@ -4,11 +4,13 @@ import { differenceInMinutes, format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { For, type ParentProps, Show, createMemo, createSignal } from 'solid-js';
+import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
-import { showToast } from '~/components/ui/toast';
 import type { Category, Session } from '~/features/sessionize/store';
-import { createEvent, createListener } from '~/lib/events';
+import { createEvent } from '~/lib/events';
+import { createToastListener } from '~/lib/toast';
+import { useAdmin } from '../admin';
 import { getSessionizeData } from '../sessionize/api';
 import {
   getRequestSpeakerFn,
@@ -19,8 +21,8 @@ import {
 import { AssignmentComponent } from './assignment';
 import { AssignmentProvider, useAssignment } from './context';
 import { MySessionComponent } from './my-session';
-import { Button } from '~/components/ui/button';
-import { useAdmin } from '../admin';
+import { BiRegularHelpCircle } from 'solid-icons/bi';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -68,6 +70,14 @@ export function SpeakerDashboard() {
               <br />
               Please assign two sessions to yourself
             </p>
+            <Tooltip>
+              <TooltipTrigger>
+                <BiRegularHelpCircle size={25} />
+              </TooltipTrigger>
+              <TooltipContent class="w-80">
+                <S2sInfo />
+              </TooltipContent>
+            </Tooltip>
             <Show when={showAdminUi()}>
               <OptOut />
             </Show>
@@ -158,27 +168,25 @@ function OptOut() {
   const onOptOutResult = onOptOut(removeSpeakerAction);
   const removeSpeakerSubmission = useSubmission(removeSpeakerFn);
 
-  createListener(onOptOutResult, async res => {
-    if (res instanceof Error) {
-      return showToast({
-        title: res.message,
-        variant: 'error',
-        duration: 2000
-      });
-    }
+  const onFeedbackError = onOptOutResult(res => (res instanceof Error ? res : null));
+  const onFeedbackSuccess = onOptOutResult(res => (res instanceof Error ? null : res));
 
-    if (res.find(e => e.feedback.type === 'speaker-removed')) {
-      showToast({
-        title: (
-          <>
-            You have <strong>opted out</strong> of S2S.
-          </>
-        ),
-        variant: 'warning',
-        duration: 2000
-      });
-    }
-  });
+  createToastListener(
+    onFeedbackSuccess(() => ({
+      title: (
+        <>
+          You have <strong>opted out</strong> of S2S.
+        </>
+      ),
+      variant: 'warning',
+      duration: 2000
+    })),
+    onFeedbackError(err => ({
+      title: err.message,
+      variant: 'error',
+      duration: 2000
+    }))
+  );
 
   return (
     <Button
@@ -200,32 +208,32 @@ function OptIn() {
 
   const signUpSpeakerSubmission = useSubmission(signUpSpeakerFn);
 
-  createListener(onOptInResult, async res => {
-    if (res instanceof Error) {
-      return showToast({
-        title: res.message,
-        variant: 'error',
-        duration: 2000
-      });
-    }
+  const onOptInError = onOptInResult(res => (res instanceof Error ? res : null));
+  const onOptInSuccess = onOptInResult(res => (res instanceof Error ? null : res));
 
-    if (res.find(e => e.feedback.type === 'speaker-signedup')) {
-      showToast({
-        title: (
-          <>
-            You have <strong>opted in</strong> to S2S.
-          </>
-        ),
-        variant: 'success',
-        duration: 2000
-      });
-    }
-  });
+  createToastListener(
+    onOptInError(err => ({
+      title: err.message,
+      variant: 'error',
+      duration: 2000
+    })),
+    onOptInSuccess(() => ({
+      title: (
+        <>
+          You have <strong>opted in</strong> to S2S.
+        </>
+      ),
+      variant: 'success',
+      duration: 2000
+    }))
+  );
 
   return (
     <>
       <p class="text-lg my-4">Speaker-to-speaker Feedback Program</p>
-      <p class="my-4">The Speaker-to-speaker feedback program</p>
+      <p class="my-4">
+        <S2sInfo />
+      </p>
 
       <Button
         type="submit"
@@ -233,7 +241,7 @@ function OptIn() {
         onClick={emitOptIn}
         disabled={signUpSpeakerSubmission.pending}
       >
-        I wanna participate!
+        Sign Up for Speaker to Speaker Feedback
       </Button>
     </>
   );
@@ -341,6 +349,19 @@ function isStartingSoonOrStarted(startsAt: string, endsAt: string) {
   if (endDiff < 0) return 'ended';
   if (startDiff < 20 && startDiff >= 0) return 'soon';
   if (endDiff < 50) return 'started';
+}
+
+function S2sInfo() {
+  return (
+    <>
+      The Speaker-to-speaker feedback program helps speakers exchange high quality non-anonymous
+      feedback for their sessions with other speakers. <br />
+      By participating in speaker-to-speaker feedback, your session becomes available to other
+      participating speakers to attend and review, and 2 speakers will assign themselves to review
+      your session. In turn, you will assign atleast 2 other sessions to yourself to attend and
+      review.
+    </>
+  );
 }
 
 export function ScheduleSkeleton() {
