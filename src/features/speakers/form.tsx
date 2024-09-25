@@ -36,14 +36,17 @@ export const getSignedUpSpeakersOrEmptyFn = cache(async () => {
   if (speakers && speakers.includes(speakerId)) return speakers;
 }, 'feedback/speakers');
 
-export function createShowSpeakerFeedback(speakerId: () => string) {
+export function createShowFeedback(speakerId: () => string) {
   const currentSpeakerId = createAsync(() => getRequestSpeakerOrEmptyFn());
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersOrEmptyFn());
 
   const isSessionSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
   const isCurrentSpeakerSignedUp = () => signedUpSpeakers()?.includes(currentSpeakerId() || ``);
 
-  return createMemo(() => isSessionSpeakerSignedUp() && isCurrentSpeakerSignedUp());
+  const isCurrentSpeaker = () => currentSpeakerId() === speakerId();
+  const showS2sForm = createMemo(() => isSessionSpeakerSignedUp() && isCurrentSpeakerSignedUp());
+
+  return { showS2sForm, isCurrentSpeaker };
 }
 
 export function SpeakerFeedbackForm(props: { sessionId: string }) {

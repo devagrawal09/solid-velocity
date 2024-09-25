@@ -7,7 +7,7 @@ import { For, Show, Suspense } from 'solid-js';
 import { AttendeeFeedbackForm } from '~/features/feedback';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
-import { createShowSpeakerFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
+import { createShowFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
 import { SpeakerImpersonator } from '~/features/speakers/impersonator';
 
 export const route = {
@@ -52,14 +52,18 @@ export default function SessionPage() {
               }
             >
               {_ => {
-                const showS2sForm = createShowSpeakerFeedback(() => speaker()?.id || ``);
+                const { showS2sForm, isCurrentSpeaker } = createShowFeedback(
+                  () => speaker()?.id || ``
+                );
 
                 return (
-                  <Show
-                    when={showS2sForm()}
-                    fallback={<AttendeeFeedbackForm sessionId={session().id} />}
-                  >
-                    <SpeakerFeedbackForm sessionId={session().id} />
+                  <Show when={!isCurrentSpeaker()}>
+                    <Show
+                      when={showS2sForm()}
+                      fallback={<AttendeeFeedbackForm sessionId={session().id} />}
+                    >
+                      <SpeakerFeedbackForm sessionId={session().id} />
+                    </Show>
                   </Show>
                 );
               }}
