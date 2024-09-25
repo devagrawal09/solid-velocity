@@ -355,10 +355,11 @@ function S2sInfo() {
   return (
     <>
       The Speaker-to-speaker feedback program helps speakers exchange high quality feedback for
-      their sessions with other speakers. <br />
+      their sessions with other speakers.
+      <br />
       By participating in speaker-to-speaker feedback, your session becomes available to other
       participating speakers to attend and review, and 2 speakers will assign themselves to review
-      your session. In turn, you will assign atleast 2 other sessions to yourself to attend and
+      your session. In turn, you will assign at least 2 other sessions to yourself to attend and
       review.
     </>
   );
