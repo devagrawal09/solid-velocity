@@ -359,8 +359,7 @@ function S2sInfo() {
       <br />
       By participating in speaker-to-speaker feedback, your session becomes available to other
       participating speakers to attend and review, and 2 speakers will assign themselves to review
-      your session. In turn, you will assign at least 2 other sessions to yourself to attend and
-      review.
+      your session. In turn, you will assign 2 other sessions to yourself to attend and review.
     </>
   );
 }
