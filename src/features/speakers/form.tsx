@@ -131,10 +131,13 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
         </TooltipTrigger>
         <TooltipContent class="w-80">
           The Speaker Feedback Form replaces the regular feedback form for sessions that are
-          available for the Speaker-to-speaker feedback program. If you assigned this session to
-          yourself, you are required to submit feedback through this form. If you have not assigned
-          this session, you are free to still attend this session and submit your feedback through
-          this form. Once submitted, you can update your response as well.
+          available for the Speaker-to-speaker feedback program.
+          <br />
+          {isAssigned()
+            ? 'You are assigned to this session, so you are required to submit feedback for this session.'
+            : 'You are not assigned to this session, but you are free to still attend this session and submit your feedback through this form.'}
+          <br />
+          Once submitted, you can update your response as well.
         </TooltipContent>
       </Tooltip>
 
