@@ -35,6 +35,13 @@ export default function Header() {
           </Button>
         </A>
       </Show>
+      <Show when={showAdminUi()}>
+        <A href={`/admin`} class="text-lg">
+          <Button variant="link" class="text-white">
+            Admin Dashboard
+          </Button>
+        </A>
+      </Show>
 
       <div class="grow"></div>
 
