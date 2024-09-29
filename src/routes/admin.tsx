@@ -1,58 +1,19 @@
 import { Title } from '@solidjs/meta';
-import {
-  A,
-  action,
-  cache,
-  createAsync,
-  createAsyncStore,
-  redirect,
-  useAction,
-  useSubmission
-} from '@solidjs/router';
+import { A, createAsync, createAsyncStore, useAction, useSubmission } from '@solidjs/router';
 import { format } from 'date-fns';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
-import { assertRequestAuth } from '~/auth';
+import { createSignal, For, Suspense } from 'solid-js';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
-import { storage } from '~/db/kv';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
 import { getSessionizeData } from '~/features/sessionize/api';
-import { createEvent, createListener } from '~/lib/events';
+import { createEvent } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
-
-const getData = cache(async () => {
-  'use server';
-
-  const auth = assertRequestAuth();
-  if (auth.sessionClaims.publicMetadata.role !== 'admin') {
-    throw redirect('/');
-  }
-
-  return Promise.all(
-    (await storage.getKeys()).map(async key => {
-      const [base, ...parts] = key.split(':');
-      const storageKey = parts.join(`:`);
-      return { key: storageKey, value: await storage.getItem(storageKey) };
-    })
-  );
-}, 'admin-data');
-
-const removeData = action(async key => {
-  'use server';
-  console.log(`removing ${key}`);
-  const auth = assertRequestAuth();
-  if (auth.sessionClaims.publicMetadata.role !== 'admin') {
-    throw redirect('/');
-  }
-
-  await storage.removeItem(key);
-});
 
 export default function Home() {
   return (
     <main class="px-2 sm:px-5">
-      <Title>Schedule | Momentum Developer Conference</Title>
+      <Title>Admin Dashboard | Momentum Developer Conference</Title>
       <main class="flex-1 overflow-auto p-6">
         <SpeakerFeedbackLog />
         <UploadSpeakerSheet />

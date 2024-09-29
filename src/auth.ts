@@ -1,4 +1,5 @@
 import type { AuthObject } from '@clerk/backend';
+import { redirect } from '@solidjs/router';
 import { getRequestEvent } from 'solid-js/web';
 
 export function getRequestAuth() {
@@ -16,11 +17,11 @@ export function assertRequestAuth() {
 
   if (event) {
     const auth = event.locals.auth as AuthObject;
-    if (!auth?.userId) throw new Error('Not signed in');
+    if (!auth?.userId) throw redirect(`/`);
     return auth;
   }
 
-  throw new Error('Invalid request');
+  throw redirect(`/`);
 }
 
 export function assertRequestAdmin() {
@@ -28,7 +29,7 @@ export function assertRequestAdmin() {
 
   const auth = assertRequestAuth();
 
-  if (auth.sessionClaims.publicMetadata.role !== 'admin') throw new Error('Not authorized');
+  if (auth.sessionClaims.publicMetadata.role !== 'admin') throw redirect(`/`);
 
   return auth;
 }
