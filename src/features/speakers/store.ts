@@ -1,7 +1,7 @@
 import { json, pgTable, PgTransaction, text, uuid, timestamp } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { getCachedData } from '../sessionize/store';
-import { asc } from 'drizzle-orm';
+import { asc, desc } from 'drizzle-orm';
 
 export const speakerFeedbackFormSchema = z.object({
   rating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
@@ -35,6 +35,10 @@ async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
 async function publishSpeakerEvent(events: SpeakerEvent[], tx: PgTransaction<any, any, any>) {
   await tx.insert(speakerFeedbackEvents).values(events);
   return events;
+}
+
+export async function getAllEvents(tx: PgTransaction<any, any, any>) {
+  return tx.select().from(speakerFeedbackEvents).orderBy(desc(speakerFeedbackEvents.timestamp));
 }
 
 export async function getSpeakerAssignments(speakerId: string, tx: PgTransaction<any, any, any>) {

@@ -1,8 +1,11 @@
 import { User, clerkClient } from '@clerk/clerk-sdk-node';
-import { action } from '@solidjs/router';
+import { action, cache } from '@solidjs/router';
 import csvToJson from 'csvtojson';
 import { z } from 'zod';
 import { getSessionizeData } from '../sessionize/api';
+import { db } from '~/db/drizzle';
+import { getAllEvents } from '../speakers/store';
+import { assertRequestAdmin } from '~/auth';
 
 const uploadSheetSchema = z.array(
   z.object({
@@ -14,6 +17,8 @@ const uploadSheetSchema = z.array(
 
 export const uploadSpeakerSheet = action(async (csvString: string) => {
   'use server';
+
+  assertRequestAdmin();
 
   const [jsonString, sessionizeData] = await Promise.all([
     csvToJson().fromString(csvString),
@@ -61,3 +66,11 @@ export const uploadSpeakerSheet = action(async (csvString: string) => {
 
   return { users, validEntries, invalidEntries };
 });
+
+export const getAllS2sEvents = cache(async () => {
+  'use server';
+
+  assertRequestAdmin();
+
+  return db.transaction(tx => getAllEvents(tx));
+}, `s2s/events`);
