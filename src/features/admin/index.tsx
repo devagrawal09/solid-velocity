@@ -1,5 +1,5 @@
 import { useClerk } from 'clerk-solidjs';
-import { createSignal } from 'solid-js';
+import { createSignal, ParentProps, Show } from 'solid-js';
 
 const [adminMode, setAdminMode] = createSignal(false);
 export const toggleAdminMode = () => setAdminMode(!adminMode());
@@ -13,3 +13,8 @@ export const useAdmin = () => {
 
   return { showAdminUi, isUserAdmin };
 };
+
+export function AdminMode(props: ParentProps) {
+  const { showAdminUi } = useAdmin();
+  return <Show when={showAdminUi()}>{props.children}</Show>;
+}

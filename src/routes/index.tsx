@@ -25,11 +25,9 @@ export default function Home() {
       <Show when={speakerId()}>
         <SpeakerLandingAlert />
       </Show>
-      <DefaultErrorBoundary>
-        <Suspense fallback={<ScheduleSkeleton />}>
-          <Schedule />
-        </Suspense>
-      </DefaultErrorBoundary>
+      <Suspense fallback={<ScheduleSkeleton />}>
+        <Schedule />
+      </Suspense>
     </main>
   );
 }
