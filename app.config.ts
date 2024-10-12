@@ -10,7 +10,7 @@ export default defineConfig({
       routes: ['/']
     }
   },
-  ssr: true,
+  ssr: false,
   vite: {
     plugins: [
       devtools({

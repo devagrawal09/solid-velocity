@@ -1,10 +1,12 @@
 import { Title } from '@solidjs/meta';
 import { RouteDefinition } from '@solidjs/router';
 import { Suspense } from 'solid-js';
-import { AttendeeDashboard } from '~/features/attendee';
+import { AttendeeDashboard, connectionsFn } from '~/features/attendee';
 
 export const route = {
-  preload() {}
+  preload() {
+    connectionsFn();
+  }
 } satisfies RouteDefinition;
 
 export default function Home() {
