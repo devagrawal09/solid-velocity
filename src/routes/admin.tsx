@@ -1,8 +1,11 @@
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { Title } from '@solidjs/meta';
 import { A, createAsync, createAsyncStore, useAction, useSubmission } from '@solidjs/router';
 import { format } from 'date-fns';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createSignal, For, Suspense } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Suspense } from 'solid-js';
+import { unwrap } from 'solid-js/store';
+import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
@@ -10,23 +13,45 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { createEvent } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
 
+async function getUsers() {
+  'use server';
+
+  await assertRequestAdmin();
+  const { data, totalCount } = await clerkClient.users.getUserList({ limit: 200 });
+  console.log({ totalCount });
+  const speakerUsers = data
+    .filter(u => !!u.publicMetadata.speakerId && u.publicMetadata.role !== 'admin')
+    .map(u => JSON.parse(JSON.stringify(u)));
+  return speakerUsers;
+}
+
 export default function Home() {
   return (
     <main class="px-2 sm:px-5">
       <Title>Admin Dashboard | Momentum Developer Conference</Title>
       <main class="flex-1 overflow-auto p-6">
         <SpeakerFeedbackLog />
+        <SpeakerAssignments />
+        <SessionAssignments />
         <UploadSpeakerSheet />
       </main>
     </main>
   );
 }
 
+type SpeakerAssignmentStats = { assigned: Set<string>; notAssigned: Set<string> };
+type SessionAssignmentStats = { sessionId: string; speakerIds: Array<string> };
+const defaultStats = () =>
+  ({
+    assigned: new Set(),
+    notAssigned: new Set()
+  }) satisfies SpeakerAssignmentStats;
 function SpeakerFeedbackLog() {
   const [open, setOpen] = createSignal(false);
 
   const speakerFeedbackEvents = createAsyncStore(() => getAllS2sEvents());
   const data = createAsync(() => getSessionizeData());
+
   const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
 
   return (
@@ -83,6 +108,175 @@ function SpeakerFeedbackLog() {
               }}
             </For>
           </ol>
+        </Suspense>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SpeakerAssignments() {
+  const [open, setOpen] = createSignal(false);
+  const speakerFeedbackEvents = createAsync(() => getAllS2sEvents());
+  const data = createAsync(() => getSessionizeData());
+
+  const chronologicalEvents = () =>
+    speakerFeedbackEvents()?.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+  const speakerAssignmentStats = createMemo(
+    () =>
+      chronologicalEvents()?.reduce((acc, event) => {
+        if (event.feedback.type === 'speaker-signedup') {
+          acc.notAssigned.add(event.speakerId);
+        }
+
+        if (event.feedback.type === 'session-assigned') {
+          acc.assigned.add(event.speakerId);
+          acc.notAssigned.delete(event.speakerId);
+        }
+
+        if (event.feedback.type === 'session-unassigned') {
+          acc.notAssigned.add(event.speakerId);
+          acc.assigned.delete(event.speakerId);
+        }
+
+        return acc;
+      }, defaultStats()) || defaultStats()
+  );
+  const getSpeaker = (speakerId: string) => data()?.speakers.find(s => s.id === speakerId);
+  const getSpeakerEmail = (speakerId: string) =>
+    speakerUsers()?.find(u => u.publicMetadata.speakerId === speakerId)?.emailAddresses[0]
+      .emailAddress;
+  const speakerUsers = createAsync(() => getUsers());
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Speaker Assignments
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+        <Suspense fallback={<>Loading Assignments...</>}>
+          <table>
+            <thead>
+              <tr>
+                <th>Speaker</th>
+                <th>Email</th>
+                <th>Assigned</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={[...speakerAssignmentStats().assigned]}>
+                {speakerId => {
+                  return (
+                    <tr>
+                      <td>{getSpeaker(speakerId)?.fullName}</td>
+                      <td>{getSpeakerEmail(speakerId)}</td>
+                      <td>Yes</td>
+                    </tr>
+                  );
+                }}
+              </For>
+              <For each={[...speakerAssignmentStats().notAssigned]}>
+                {speakerId => (
+                  <tr>
+                    <td>{getSpeaker(speakerId)?.fullName}</td>
+                    <td>{getSpeakerEmail(speakerId)}</td>
+                    <td>No</td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </Suspense>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SessionAssignments() {
+  const [open, setOpen] = createSignal(false);
+  const data = createAsync(() => getSessionizeData());
+  const speakerFeedbackEvents = createAsync(() => getAllS2sEvents());
+  const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
+  const chronologicalEvents = () =>
+    speakerFeedbackEvents()?.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+  const getSpeaker = (speakerId: string) => data()?.speakers.find(s => s.id === speakerId);
+  const getSessionBySpeakerId = (speakerId: string) =>
+    data()?.sessions.find(s => s.speakers.includes(speakerId));
+  const sessionAssignmentStats = createMemo(() =>
+    chronologicalEvents()?.reduce((acc, event) => {
+      const sessionId = getSessionBySpeakerId(event.speakerId)?.id;
+      if (!sessionId) return acc;
+
+      if (event.feedback.type === 'speaker-signedup') {
+        return [
+          ...acc,
+          {
+            sessionId: sessionId,
+            speakerIds: []
+          }
+        ];
+      }
+
+      if (event.feedback.type === 'speaker-removed') {
+        return acc.filter(s => s.sessionId !== sessionId);
+      }
+
+      if (event.feedback.type === 'session-assigned') {
+        return acc.map(s =>
+          // @ts-expect-error
+          s.sessionId === event.feedback.sessionId
+            ? { ...s, speakerIds: [...s.speakerIds, event.speakerId] }
+            : s
+        );
+      }
+
+      if (event.feedback.type === 'session-unassigned') {
+        return acc.map(s =>
+          // @ts-expect-error
+          s.sessionId === event.feedback.sessionId
+            ? { ...s, speakerIds: s.speakerIds.filter(id => id !== event.speakerId) }
+            : s
+        );
+      }
+
+      return acc;
+    }, [] as SessionAssignmentStats[])
+  );
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Session Assignments
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+        <Suspense fallback={<>Loading Assignments...</>}>
+          <table>
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Speakers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={sessionAssignmentStats()}>
+                {assignment => (
+                  <tr>
+                    <td>{getSession(assignment.sessionId)?.title}</td>
+                    <td>
+                      {assignment.speakerIds.map(s => getSpeaker(s)?.fullName).join(`, `) || `None`}
+                    </td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
         </Suspense>
       </CollapsibleContent>
     </Collapsible>
