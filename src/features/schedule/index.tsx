@@ -61,8 +61,7 @@ export function Schedule() {
 
 function isStartingSoonOrStarted(startsAt: string, endsAt: string) {
   const now = utcToZonedTime(
-    // new Date(),
-    new Date('Oct 19 2023 2023 13:30:00 GMT-0400'), // for testing
+    new Date(),
     // new Date('Oct 19 2023 2023 13:30:01 GMT-0400'), // for testing
     'America/New_York'
   );
