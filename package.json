@@ -3,8 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "vinxi dev",
-    "build": "NODE_OPTIONS='--import ./public/instrument.server.mjs' vinxi build",
-    "start": "NODE_OPTIONS='--import ./public/instrument.server.mjs' vinxi start",
+    "build": "vinxi build",
+    "start": "vinxi start",
     "version": "vinxi version",
     "lint": "eslint **/*.{ts,tsx}",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\""
