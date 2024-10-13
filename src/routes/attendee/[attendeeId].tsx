@@ -24,3 +24,7 @@ export const route = {
     scanAttendee(params.attendeeId);
   }
 } satisfies RouteDefinition;
+
+export default function AttendeeView() {
+  return <div>View attendee</div>;
+}
