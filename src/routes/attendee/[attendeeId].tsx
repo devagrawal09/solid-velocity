@@ -4,7 +4,7 @@ import { assertRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
 import { attendeeProfiles, connectionTable } from '~/db/schema';
 
-const scanAttendee = cache(async (attendeeId: string) => {
+const visitAttendee = cache(async (attendeeId: string) => {
   'use server';
 
   // add attendeeId to connecions using current user profile id
@@ -37,22 +37,26 @@ const scanAttendee = cache(async (attendeeId: string) => {
       .returning();
   }
 
+  if (profile.id === attendeeId) {
+    return redirect(`/attendee?status=notfound`);
+  }
+
   const [connection] = await db
     .insert(connectionTable)
     .values([{ to: attendeeId, from: profile.id }])
-    .onConflictDoNothing({ target: [connectionTable.from, connectionTable.to] })
-    .returning();
+    .returning()
+    .onConflictDoNothing();
 
   if (!connection) {
     return redirect('/attendee?status=alreadyconnected');
   }
 
   return redirect(`/attendee?status=success`);
-}, `scanAttendee`);
+}, `visitAttendee`);
 
 export const route = {
   preload({ params }) {
-    scanAttendee(params.attendeeId);
+    visitAttendee(params.attendeeId);
   }
 } satisfies RouteDefinition;
 
