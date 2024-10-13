@@ -9,7 +9,9 @@ export const attendeeProfiles = pgTable(`attendee-profiles`, {
   email: text(`email`),
   twitter: text(`twitter`),
   linkedin: text(`linkedin`),
-  github: text(`github`)
+  github: text(`github`),
+  job: text(`job`),
+  company: text(`company`)
 });
 
 export const attendeeRelations = relations(attendeeProfiles, ({ many }) => ({
@@ -33,7 +35,7 @@ export const connectionsRelations = relations(connectionTable, ({ one }) => ({
     references: [attendeeProfiles.id]
   }),
   connectionReceiver: one(attendeeProfiles, {
-    fields: [connectionTable.from],
+    fields: [connectionTable.to],
     references: [attendeeProfiles.id]
   })
 }));

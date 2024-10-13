@@ -2,10 +2,18 @@ import { clerkClient } from '@clerk/clerk-sdk-node';
 import { action, cache, createAsync } from '@solidjs/router';
 import { clientOnly } from '@solidjs/start';
 import { eq } from 'drizzle-orm';
-import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createSignal, Show } from 'solid-js';
+import {
+  FaSolidChevronDown,
+  FaSolidChevronRight,
+  FaBrandsLinkedinIn,
+  FaBrandsTwitter,
+  FaBrandsGithub
+} from 'solid-icons/fa';
+import { SiMaildotru } from 'solid-icons/si';
+import { createSignal, For, Show } from 'solid-js';
 import { assertRequestAuth } from '~/auth';
 import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-field';
 import { db } from '~/db/drizzle';
@@ -60,31 +68,92 @@ const saveProfileFn = action(async (formData: FormData) => {
 const QrCodeComp = clientOnly(() => import('./qrcode'));
 
 export function AttendeeDashboard() {
-  const [open, setOpen] = createSignal(false);
+  const [showQr, setshowQr] = createSignal(false);
+  const [showConnections, setshowConnections] = createSignal(false);
 
   const profileAndConnections = createAsync(() => getProfileAndConnections());
+  const profile = () => profileAndConnections()?.profile;
+  const connections = () => profileAndConnections()?.connections;
 
   return (
     <>
       <p class="text-xl my-4">Your Profile</p>
-      <Collapsible open={open()} onOpenChange={setOpen}>
+      <Collapsible open={showQr()} onOpenChange={setshowQr}>
         <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
-          {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          {showQr() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
           Show QR Code
         </CollapsibleTrigger>
         <CollapsibleContent class="border rounded-xl p-3 my-2 border-gray-700 justify-center flex">
-          <Show when={profileAndConnections()?.profile.id} fallback={<p>Loading QR Code...</p>}>
+          <Show when={profile()?.id} fallback={<p>Loading QR Code...</p>}>
             <QrCodeComp profileId={profileAndConnections()!.profile.id} />
           </Show>
         </CollapsibleContent>
       </Collapsible>
-      <Collapsible open={true}>
+      <Collapsible open={true} onOpenChange={setshowConnections}>
         <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
-          {/* {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />} */}
+          {showConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
           Connections
         </CollapsibleTrigger>
-        <CollapsibleContent class="border rounded-xl p-3 my-2 border-gray-700 justify-center flex">
-          {/* TODO: show connections in a grid of cards */}
+        <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
+          <Show when={connections()} fallback={<p>Loading Connections...</p>}>
+            <div class="grid grid-cols-2 gap-3">
+              <For each={connections()!}>
+                {connection => {
+                  // Determine if the attendee is the initator or receiver in this connection
+                  const profileId = profile()!.id;
+                  const isInitiator = connection.connectionInitiator.id === profileId;
+                  const otherProfile = isInitiator
+                    ? connection.connectionReceiver
+                    : connection.connectionInitiator;
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <div class="w-full flex gap-2 justify-between">
+                          <div>
+                            <CardTitle>{otherProfile.name}</CardTitle>
+                            <CardDescription class="flex flex-col">
+                              <p>{otherProfile.job}</p>
+                              <p>{otherProfile.company}</p>
+                            </CardDescription>
+                          </div>
+                          <div>
+                            <img
+                              src={otherProfile.avatarUrl}
+                              width={40}
+                              height={40}
+                              class="rounded-full"
+                            />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div class="flex flex-col gap-1">
+                          <p>
+                            <SiMaildotru class="inline" /> {otherProfile.email}
+                          </p>
+                          {otherProfile.linkedin && (
+                            <p>
+                              <FaBrandsLinkedinIn class="inline" /> {otherProfile.linkedin}
+                            </p>
+                          )}
+                          {otherProfile.github && (
+                            <p>
+                              <FaBrandsGithub class="inline" /> {otherProfile.github}
+                            </p>
+                          )}
+                          {otherProfile.twitter && (
+                            <p>
+                              <FaBrandsTwitter class="inline" /> {otherProfile.twitter}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }}
+              </For>
+            </div>
+          </Show>
         </CollapsibleContent>
       </Collapsible>
 
