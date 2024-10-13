@@ -234,7 +234,7 @@ export async function getFeedbackForSession(
 ) {
   const events = await getSpeakerEvents(tx);
 
-  return events.reduce(
+  const feedback = events.reduce(
     (acc, ev) => {
       if (ev.feedback.type === 'session-feedback' && ev.feedback.sessionId === sessionId)
         acc.push({
@@ -256,6 +256,8 @@ export async function getFeedbackForSession(
       approved: boolean;
     }[]
   );
+
+  return feedback.filter(f => f.approved);
 }
 
 export async function submitFeedback(

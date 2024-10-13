@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createEffect, createMemo, createSignal, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
@@ -407,7 +407,7 @@ type Submission = {
 };
 
 function SpeakerFeedbackApproval() {
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(false);
 
   const speakerFeedbackEvents = createAsync(() => getAllS2sEvents());
 
@@ -448,8 +448,6 @@ function SpeakerFeedbackApproval() {
       }
       return acc;
     }, [] as Submission[]);
-
-  createEffect(() => console.log(`feedbackSubmissions`, feedbackSubmissions()));
 
   const approveFeedback = useAction(approveFeedbackFn);
   const approveFeedbackSubmission = useSubmission(approveFeedbackFn);
