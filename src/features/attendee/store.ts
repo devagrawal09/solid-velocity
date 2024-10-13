@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
 
 export const attendeeProfiles = pgTable(`attendee-profiles`, {
@@ -11,6 +12,11 @@ export const attendeeProfiles = pgTable(`attendee-profiles`, {
   github: text(`github`)
 });
 
+export const attendeeRelations = relations(attendeeProfiles, ({ many }) => ({
+  connectionsSentTo: many(connectionTable),
+  connectionsReceevedFrom: many(connectionTable)
+}));
+
 export const connectionTable = pgTable(`attendee-connection`, {
   id: uuid(`id`).defaultRandom().primaryKey(),
   from: uuid(`from`)
@@ -20,3 +26,14 @@ export const connectionTable = pgTable(`attendee-connection`, {
     .references(() => attendeeProfiles.id)
     .notNull()
 });
+
+export const connectionsRelations = relations(connectionTable, ({ one }) => ({
+  connectionInitiator: one(attendeeProfiles, {
+    fields: [connectionTable.from],
+    references: [attendeeProfiles.id]
+  }),
+  connectionReceiver: one(attendeeProfiles, {
+    fields: [connectionTable.from],
+    references: [attendeeProfiles.id]
+  })
+}));
