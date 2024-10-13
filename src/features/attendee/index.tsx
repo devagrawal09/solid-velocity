@@ -66,7 +66,7 @@ const saveProfileFn = action(async (formData: FormData) => {
   await db
     .update(attendeeProfiles)
     .set({
-      email: profileInput ? String(profileInput) : undefined,
+      email: profileInput.email ? String(profileInput.email) : undefined,
       twitter: profileInput.twitter ? String(profileInput.twitter) : undefined,
       github: profileInput.github ? String(profileInput.github) : undefined,
       linkedin: profileInput.linkedin ? String(profileInput.linkedin) : undefined,
@@ -173,27 +173,27 @@ export function AttendeeDashboard() {
         <p>
           This information will be shared with anyone who scans your QR code, including sponsors.
         </p>
-        <TextField defaultValue={profile()?.email ?? undefined}>
+        <TextField name="email" defaultValue={profile()?.email ?? undefined}>
           <TextFieldLabel for="email">Email *</TextFieldLabel>
           <TextFieldInput type="email" id="email" placeholder="Email" required />
         </TextField>
-        <TextField defaultValue={profile()?.company ?? undefined}>
+        <TextField name="company" defaultValue={profile()?.company ?? undefined}>
           <TextFieldLabel for="company">Company</TextFieldLabel>
           <TextFieldInput type="text" id="company" placeholder="Company" />
         </TextField>
-        <TextField defaultValue={profile()?.job ?? undefined}>
+        <TextField name="job" defaultValue={profile()?.job ?? undefined}>
           <TextFieldLabel for="job">Job Title</TextFieldLabel>
           <TextFieldInput type="text" id="job" placeholder="Job Title" />
         </TextField>
-        <TextField defaultValue={profile()?.linkedin ?? undefined}>
+        <TextField name="linkedin" defaultValue={profile()?.linkedin ?? undefined}>
           <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
           <TextFieldInput type="url" id="linkedin" placeholder="LinkedIn" />
         </TextField>
-        <TextField defaultValue={profile()?.github ?? undefined}>
+        <TextField name="github" defaultValue={profile()?.github ?? undefined}>
           <TextFieldLabel for="github">GitHub</TextFieldLabel>
           <TextFieldInput type="url" id="github" placeholder="GitHub" />
         </TextField>
-        <TextField defaultValue={profile()?.twitter ?? undefined}>
+        <TextField name="twitter" defaultValue={profile()?.twitter ?? undefined}>
           <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
           <TextFieldInput type="url" id="twitter" placeholder="Twitter" />
         </TextField>

@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
 export const attendeeProfiles = pgTable(`attendee-profiles`, {
   id: uuid(`id`).defaultRandom().primaryKey(),
@@ -19,15 +19,21 @@ export const attendeeRelations = relations(attendeeProfiles, ({ many }) => ({
   connectionsReceevedFrom: many(connectionTable, { relationName: 'connectionReceiver' })
 }));
 
-export const connectionTable = pgTable(`attendee-connection`, {
-  id: uuid(`id`).defaultRandom().primaryKey(),
-  from: uuid(`from`)
-    .references(() => attendeeProfiles.id)
-    .notNull(),
-  to: uuid(`to`)
-    .references(() => attendeeProfiles.id)
-    .notNull()
-});
+export const connectionTable = pgTable(
+  `attendee-connection`,
+  {
+    id: uuid(`id`).defaultRandom().primaryKey(),
+    from: uuid(`from`)
+      .references(() => attendeeProfiles.id)
+      .notNull(),
+    to: uuid(`to`)
+      .references(() => attendeeProfiles.id)
+      .notNull()
+  },
+  t => ({
+    unq: unique().on(t.from, t.to)
+  })
+);
 
 export const connectionsRelations = relations(connectionTable, ({ one }) => ({
   connectionInitiator: one(attendeeProfiles, {
