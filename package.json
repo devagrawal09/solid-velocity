@@ -32,6 +32,7 @@
     "date-fns-tz": "^2.0.0",
     "drizzle-orm": "^0.33.0",
     "pg": "^8.12.0",
+    "qrcode": "^1.5.4",
     "rxjs": "^7.8.1",
     "solid-icons": "^1.1.0",
     "solid-js": "^1.8.17",
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@eslint/js": "^9.5.0",
     "@types/pg": "^8.11.6",
+    "@types/qrcode": "^1.5.5",
     "drizzle-kit": "^0.24.0",
     "eslint": "^9.5.0",
     "eslint-plugin-solid": "^0.14.1",
