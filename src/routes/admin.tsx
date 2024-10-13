@@ -5,13 +5,16 @@ import clsx from 'clsx';
 import { format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createMemo, createSignal, For, Suspense } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { useAdmin } from '~/features/admin';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
 import { getSessionizeData } from '~/features/sessionize/api';
+import { Session, Speaker } from '~/features/sessionize/store';
+import { approveFeedbackFn } from '~/features/speakers/api';
+import { SpeakerFeedbackFormData } from '~/features/speakers/store';
 import { createEvent } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
 
@@ -27,7 +30,7 @@ async function getUsers() {
   return speakerUsers;
 }
 
-export default function Home() {
+export default function AdminPage() {
   return (
     <main class="px-2 sm:px-5">
       <Title>Admin Dashboard | Momentum Developer Conference</Title>
@@ -36,6 +39,7 @@ export default function Home() {
         <SpeakerAssignments />
         <SessionAssignments />
         <UploadSpeakerSheet />
+        <SpeakerFeedbackApproval />
         <GlobalClock />
       </main>
     </main>
@@ -384,4 +388,162 @@ function readFileAsync(file: File) {
     reader.onerror = reject;
     reader.readAsText(file);
   });
+}
+
+type Submission = {
+  data: SpeakerFeedbackFormData;
+  session: Session;
+  speaker: Speaker;
+  approved: boolean;
+};
+
+function SpeakerFeedbackApproval() {
+  const [open, setOpen] = createSignal(true);
+
+  const speakerFeedbackEvents = createAsync(() => getAllS2sEvents());
+
+  const chronologicalEvents = () =>
+    speakerFeedbackEvents()?.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+  const data = createAsync(() => getSessionizeData());
+  const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
+  const getSpeaker = (speakerId: string) => data()?.speakers.find(s => s.id === speakerId);
+
+  const feedbackSubmissions = () =>
+    chronologicalEvents()?.reduce((acc, event) => {
+      if (event.feedback.type === 'session-feedback') {
+        const session = getSession(event.feedback.sessionId)!;
+        const speaker = getSpeaker(event.speakerId)!;
+
+        const existing = acc.findIndex(
+          s => s.speaker.id === speaker?.id && s.session.id === session?.id
+        );
+
+        if (existing !== -1) {
+          acc[existing].data = event.feedback.data;
+        } else {
+          acc.push({ data: event.feedback.data, session, speaker, approved: false });
+        }
+      }
+
+      if (event.feedback.type === 'feedback-approved') {
+        const index = acc.findIndex(
+          // @ts-expect-error
+          s => s.speaker.id === event.speakerId && s.session.id === event.feedback.sessionId
+        );
+        if (index !== -1) {
+          acc[index].approved = true;
+        }
+      }
+      return acc;
+    }, [] as Submission[]);
+
+  createEffect(() => console.log(`feedbackSubmissions`, feedbackSubmissions()));
+
+  const approveFeedback = useAction(approveFeedbackFn);
+  const approveFeedbackSubmission = useSubmission(approveFeedbackFn);
+
+  const [selectedSubmission, setSelectionSubmission] = createSignal<Submission>();
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Speaker Feedback Approval
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700 flex">
+        <table class="w-1/3">
+          <thead>
+            <tr>
+              <th>Speaker</th>
+              <th>Session</th>
+              <th>Approved</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={feedbackSubmissions()}>
+              {submission => (
+                <tr
+                  class={clsx(
+                    'cursor-pointer hover:bg-white hover:bg-opacity-20',
+                    submission === selectedSubmission() && 'bg-momentum'
+                  )}
+                  role="button"
+                  onClick={() => setSelectionSubmission(submission)}
+                >
+                  <td class="border-b border-gray-500 p-2">{submission.speaker.fullName}</td>
+                  <td class="border-b border-gray-500 p-2">{submission.session.title}</td>
+                  <td class="border-b border-gray-500 p-2">
+                    <Show
+                      when={!submission.approved}
+                      fallback={
+                        <Button variant="success" disabled>
+                          Approved
+                        </Button>
+                      }
+                    >
+                      <Button
+                        variant="success"
+                        onClick={() =>
+                          approveFeedback({
+                            sessionId: submission.session.id,
+                            speakerId: submission.speaker.id
+                          })
+                        }
+                        disabled={approveFeedbackSubmission.pending}
+                      >
+                        Approve
+                      </Button>
+                    </Show>
+                  </td>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
+        <div class="w-2/3 p-4">
+          <Show when={selectedSubmission()} fallback={<>Select submission to view details</>}>
+            {selectedSubmission => (
+              <>
+                <p class="mb-2">
+                  Feedback by <strong>{selectedSubmission().speaker.fullName}</strong> for{' '}
+                  <strong>{selectedSubmission().session.title}</strong>
+                </p>
+                <p class="mb-2">
+                  <strong>How would you rate this session?</strong>
+                  <br />
+                  {selectedSubmission().data.rating}
+                </p>
+                <p class="mb-2">
+                  <strong>Why did you choose to attend this session?</strong>
+                  <br />
+                  {selectedSubmission().data.why}
+                </p>
+                <p class="mb-2">
+                  <strong>What was your favorite thing about this session?</strong>
+                  <br />
+                  {selectedSubmission().data.fav}
+                </p>
+                <p class="mb-2">
+                  <strong>
+                    What is one thing the speaker could improve the next time they present this
+                    session?
+                  </strong>
+                  <br />
+                  {selectedSubmission().data.improve}
+                </p>
+                <p class="mb-2">
+                  <strong>Any other comments for the speaker?</strong>
+                  <br />
+                  {selectedSubmission().data.comments}
+                </p>
+              </>
+            )}
+          </Show>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
