@@ -1,4 +1,3 @@
-import { withSentryRouterRouting } from '@sentry/solidstart/solidrouter';
 import { MetaProvider, Title } from '@solidjs/meta';
 import { Router } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
@@ -9,11 +8,9 @@ import { Button } from '~/components/ui/button';
 import { Toaster } from '~/components/ui/toast';
 import './app.css';
 
-const SentryRouter = withSentryRouterRouting(Router);
-
 export default function App() {
   return (
-    <SentryRouter
+    <Router
       root={props => (
         <DefaultErrorBoundary>
           <MetaProvider>
@@ -30,7 +27,7 @@ export default function App() {
       )}
     >
       <FileRoutes />
-    </SentryRouter>
+    </Router>
   );
 }
 
