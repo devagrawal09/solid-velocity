@@ -110,6 +110,15 @@ function SpeakerFeedbackLog() {
                     {event.feedback.type === 'speaker-removed' && (
                       <>{speaker()?.fullName} removed from s2s.</>
                     )}
+                    {event.feedback.type === 'feedback-approved' && (
+                      <>
+                        Approved {speaker()?.fullName}'s feedback for{' '}
+                        <A href={`/session/${event.feedback.sessionId}`} class="underline">
+                          {getSession(event.feedback.sessionId)?.title}
+                        </A>
+                        .
+                      </>
+                    )}
                   </li>
                 );
               }}
