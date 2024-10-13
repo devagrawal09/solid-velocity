@@ -59,9 +59,22 @@ export const getProfileAndConnections = cache(async () => {
 
 const saveProfileFn = action(async (formData: FormData) => {
   'use server';
+  const { userId } = assertRequestAuth();
 
   // TODO: update profile data in the database
-  console.log(formData);
+  const profileInput = Object.fromEntries(formData.entries());
+
+  await db
+    .update(attendeeProfiles)
+    .set({
+      email: profileInput ? String(profileInput) : undefined,
+      twitter: profileInput.twitter ? String(profileInput.twitter) : undefined,
+      github: profileInput.github ? String(profileInput.github) : undefined,
+      linkedin: profileInput.linkedin ? String(profileInput.linkedin) : undefined,
+      job: profileInput.job ? String(profileInput.job) : undefined,
+      company: profileInput.company ? String(profileInput.company) : undefined
+    })
+    .where(eq(attendeeProfiles.userId, userId));
 });
 
 // QrComponnent need to be client-side because it relies on localStorage
@@ -157,31 +170,31 @@ export function AttendeeDashboard() {
         </CollapsibleContent>
       </Collapsible>
 
-      <form class="my-8 flex flex-col gap-4" action={saveProfileFn}>
+      <form class="my-8 flex flex-col gap-4" method="post" action={saveProfileFn}>
         <p>
           This information will be shared with anyone who scans your QR code, including sponsors.
         </p>
-        <TextField>
+        <TextField defaultValue={profile()?.email ?? undefined}>
           <TextFieldLabel for="email">Email *</TextFieldLabel>
           <TextFieldInput type="email" id="email" placeholder="Email" required />
         </TextField>
-        <TextField>
+        <TextField defaultValue={profile()?.company ?? undefined}>
           <TextFieldLabel for="company">Company</TextFieldLabel>
           <TextFieldInput type="text" id="company" placeholder="Company" />
         </TextField>
-        <TextField>
+        <TextField defaultValue={profile()?.job ?? undefined}>
           <TextFieldLabel for="job">Job Title</TextFieldLabel>
           <TextFieldInput type="text" id="job" placeholder="Job Title" />
         </TextField>
-        <TextField>
+        <TextField defaultValue={profile()?.linkedin ?? undefined}>
           <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
           <TextFieldInput type="url" id="linkedin" placeholder="LinkedIn" />
         </TextField>
-        <TextField>
+        <TextField defaultValue={profile()?.github ?? undefined}>
           <TextFieldLabel for="github">GitHub</TextFieldLabel>
           <TextFieldInput type="url" id="github" placeholder="GitHub" />
         </TextField>
-        <TextField>
+        <TextField defaultValue={profile()?.twitter ?? undefined}>
           <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
           <TextFieldInput type="url" id="twitter" placeholder="Twitter" />
         </TextField>

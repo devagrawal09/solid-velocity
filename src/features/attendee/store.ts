@@ -15,8 +15,8 @@ export const attendeeProfiles = pgTable(`attendee-profiles`, {
 });
 
 export const attendeeRelations = relations(attendeeProfiles, ({ many }) => ({
-  connectionsSentTo: many(connectionTable),
-  connectionsReceevedFrom: many(connectionTable)
+  connectionsSentTo: many(connectionTable, { relationName: 'connectionInitiator' }),
+  connectionsReceevedFrom: many(connectionTable, { relationName: 'connectionReceiver' })
 }));
 
 export const connectionTable = pgTable(`attendee-connection`, {
@@ -32,10 +32,12 @@ export const connectionTable = pgTable(`attendee-connection`, {
 export const connectionsRelations = relations(connectionTable, ({ one }) => ({
   connectionInitiator: one(attendeeProfiles, {
     fields: [connectionTable.from],
-    references: [attendeeProfiles.id]
+    references: [attendeeProfiles.id],
+    relationName: 'connectionInitiator'
   }),
   connectionReceiver: one(attendeeProfiles, {
     fields: [connectionTable.to],
-    references: [attendeeProfiles.id]
+    references: [attendeeProfiles.id],
+    relationName: 'connectionReceiver'
   })
 }));
