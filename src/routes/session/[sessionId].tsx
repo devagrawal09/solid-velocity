@@ -2,9 +2,10 @@ import { A, createAsync, RouteDefinition, useParams } from '@solidjs/router';
 import { SignInButton, useClerk } from 'clerk-solidjs';
 import clsx from 'clsx';
 import { format } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidArrowUpShortWide, FaSolidClock, FaSolidMapPin, FaSolidTags } from 'solid-icons/fa';
 import { createMemo, For, Show, Suspense } from 'solid-js';
-import { AdminMode } from '~/features/admin';
+import { useAdmin } from '~/features/admin';
 import { AttendeeFeedbackForm } from '~/features/feedback';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
@@ -31,6 +32,8 @@ export default function SessionPage() {
   const clerk = useClerk();
   const isSignedIn = () => Boolean(clerk()?.user);
 
+  const { clock } = useAdmin();
+
   return (
     <Show when={session()}>
       {session => (
@@ -39,17 +42,6 @@ export default function SessionPage() {
             <h1 class="text-xl font-semibold my-4">{session().title}</h1>
             <SpeakerImpersonator />
           </div>
-
-          <AdminMode>
-            <button
-              type="button"
-              onClick={() => {
-                throw new Error('Frontend Error Test');
-              }}
-            >
-              Throw error
-            </button>
-          </AdminMode>
 
           <Suspense
             fallback={<div class="h-9 animate-pulse bg-white bg-opacity-10 rounded-sm my-2" />}
@@ -68,8 +60,8 @@ export default function SessionPage() {
                 );
 
                 const hasTalkStarted = createMemo(() => {
-                  const endsAt = new Date(session()?.startsAt || ``);
-                  return new Date() > endsAt;
+                  const startsAt = new Date(session()?.startsAt || ``);
+                  return utcToZonedTime(new Date(clock()), 'America/New_York') > startsAt;
                 });
 
                 return (

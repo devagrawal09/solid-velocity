@@ -7,7 +7,7 @@ import { For, type ParentProps, Show, createMemo, createSignal } from 'solid-js'
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
-import type { Category, Session } from '~/features/sessionize/store';
+import type { Session } from '~/features/sessionize/store';
 import { createEvent } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
 import { useAdmin } from '../admin';
@@ -64,25 +64,26 @@ export function SpeakerDashboard() {
       <Show when={mySession()}>{session => <MySessionComponent session={session()} />}</Show>
       <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
         <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
-          <div class="flex items-center">
-            <p class="my-4 grow">
-              <span class="text-xl">Available Sessions</span>
-              <br />
-              Please assign two sessions to yourself
-            </p>
-            <Tooltip>
-              <TooltipTrigger>
-                <BiRegularHelpCircle size={25} />
-              </TooltipTrigger>
-              <TooltipContent class="w-80">
-                <S2sInfo />
-              </TooltipContent>
-            </Tooltip>
-            <Show when={showAdminUi()}>
-              <OptOut />
-            </Show>
-          </div>
           <AssignmentProvider>
+            <AssignedSessions />
+            <div class="flex items-center">
+              <p class="my-4 grow">
+                <span class="text-xl">Available Sessions</span>
+                <br />
+                Please assign two sessions to yourself
+              </p>
+              <Tooltip>
+                <TooltipTrigger>
+                  <BiRegularHelpCircle size={25} />
+                </TooltipTrigger>
+                <TooltipContent class="w-80">
+                  <S2sInfo />
+                </TooltipContent>
+              </Tooltip>
+              <Show when={showAdminUi()}>
+                <OptOut />
+              </Show>
+            </div>
             <Show
               when={timeSlots()?.length}
               // fallback={
@@ -107,6 +108,41 @@ export function SpeakerDashboard() {
         </Show>
       </Show>
     </>
+  );
+}
+
+function AssignedSessions() {
+  const data = createAsync(() => getSessionizeData());
+  const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
+  const { assignments } = useAssignment();
+  const assignedSessions = () => assignments().map(getSession);
+
+  return (
+    <Show when={assignedSessions().length}>
+      <div class="flex items-center">
+        <p class="my-4 grow">
+          <span class="text-xl">Assigned Sessions</span>
+          <br />
+          You have assigned these two sessions to yourself. Please ensure you attend these sessions
+          and submit the speaker feedback form.
+        </p>
+      </div>
+      <For each={assignedSessions()}>
+        {session => (
+          <Show when={session}>
+            {session => (
+              <>
+                <h2 class="text-sm">
+                  {format(new Date(session().startsAt || ``), 'h:mm a')} to{' '}
+                  {format(new Date(session().endsAt || ``), 'h:mm a')}
+                </h2>
+                <SessionComponent session={session()} />
+              </>
+            )}
+          </Show>
+        )}
+      </For>
+    </Show>
   );
 }
 
@@ -325,19 +361,9 @@ function SessionComponent(props: ParentProps<{ session: Session }>) {
   );
 }
 
-function categoriesForSession(
-  category: Category,
-  session: Session
-): { sort: number; id: number; name: string }[] {
-  return category.items.filter(item => session.categoryItems.includes(item.id));
-}
-
 function isStartingSoonOrStarted(startsAt: string, endsAt: string) {
-  const now = utcToZonedTime(
-    new Date(),
-    // new Date("Oct 19 2023 2023 12:30:13 GMT-0400"), // for testing
-    'America/New_York'
-  );
+  const { clock } = useAdmin();
+  const now = utcToZonedTime(new Date(clock()), 'America/New_York');
 
   const startDiff = differenceInMinutes(new Date(startsAt), now, {
     roundingMethod: 'floor'

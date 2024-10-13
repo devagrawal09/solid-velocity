@@ -1,12 +1,15 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import { Title } from '@solidjs/meta';
 import { A, createAsync, createAsyncStore, useAction, useSubmission } from '@solidjs/router';
+import clsx from 'clsx';
 import { format } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { createMemo, createSignal, For, Suspense } from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
+import { useAdmin } from '~/features/admin';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { createEvent } from '~/lib/events';
@@ -33,6 +36,7 @@ export default function Home() {
         <SpeakerAssignments />
         <SessionAssignments />
         <UploadSpeakerSheet />
+        <GlobalClock />
       </main>
     </main>
   );
@@ -170,9 +174,11 @@ function SpeakerAssignments() {
                 {speakerId => {
                   return (
                     <tr>
-                      <td>{getSpeaker(speakerId)?.fullName}</td>
-                      <td>{getSpeakerEmail(speakerId)}</td>
-                      <td>Yes</td>
+                      <td class="border-b border-gray-500 p-2">
+                        {getSpeaker(speakerId)?.fullName}
+                      </td>
+                      <td class="border-b border-gray-500 p-2">{getSpeakerEmail(speakerId)}</td>
+                      <td class="border-b border-gray-500 p-2">Yes</td>
                     </tr>
                   );
                 }}
@@ -180,9 +186,9 @@ function SpeakerAssignments() {
               <For each={[...speakerAssignmentStats().notAssigned]}>
                 {speakerId => (
                   <tr>
-                    <td>{getSpeaker(speakerId)?.fullName}</td>
-                    <td>{getSpeakerEmail(speakerId)}</td>
-                    <td>No</td>
+                    <td class="border-b border-gray-500 p-2">{getSpeaker(speakerId)?.fullName}</td>
+                    <td class="border-b border-gray-500 p-2">{getSpeakerEmail(speakerId)}</td>
+                    <td class="border-b border-gray-500 p-2">No</td>
                   </tr>
                 )}
               </For>
@@ -266,9 +272,18 @@ function SessionAssignments() {
             <tbody>
               <For each={sessionAssignmentStats()}>
                 {assignment => (
-                  <tr>
-                    <td>{getSession(assignment.sessionId)?.title}</td>
-                    <td>
+                  <tr
+                    class={clsx(
+                      `bg-opacity-20`,
+                      assignment.speakerIds.length === 0 && `bg-red-500`,
+                      assignment.speakerIds.length === 1 && `bg-yellow-500`,
+                      assignment.speakerIds.length > 1 && `bg-blue-500`
+                    )}
+                  >
+                    <td class="border-b border-gray-500 p-2">
+                      {getSession(assignment.sessionId)?.title}
+                    </td>
+                    <td class="border-b border-gray-500 p-2">
                       {assignment.speakerIds.map(s => getSpeaker(s)?.fullName).join(`, `) || `None`}
                     </td>
                   </tr>
@@ -331,6 +346,32 @@ function UploadSpeakerSheet() {
             Submit
           </Button>
         </form>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function GlobalClock() {
+  const [open, setOpen] = createSignal(false);
+  const { clock, overrideClock } = useAdmin();
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Global Clock Override
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+        Current Time:{' '}
+        {clock() ? utcToZonedTime(new Date(clock()), 'America/New_York').toString() : ``}
+        <br />
+        Override Time{' '}
+        <input
+          type="datetime-local"
+          value={clock()}
+          class="text-black"
+          onInput={e => overrideClock(e.currentTarget.value)}
+        />
       </CollapsibleContent>
     </Collapsible>
   );

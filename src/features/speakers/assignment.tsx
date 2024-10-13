@@ -3,6 +3,7 @@ import { Show } from 'solid-js';
 import { Button } from '~/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import { useAssignment } from './context';
+import { AdminMode } from '../admin';
 
 export function AssignmentComponent(props: { sessionId: string }) {
   const { isAssigned } = useAssignment();
@@ -29,14 +30,16 @@ function Assigned(props: { sessionId: string }) {
   const { emitUnassign } = useAssignment();
   return (
     <>
-      <Button
-        onClick={() => emitUnassign(props.sessionId)}
-        class="text-sm font-bold"
-        variant="destructive"
-        size="sm"
-      >
-        Remove Assignment
-      </Button>
+      <AdminMode>
+        <Button
+          onClick={() => emitUnassign(props.sessionId)}
+          class="text-sm font-bold"
+          variant="destructive"
+          size="sm"
+        >
+          Remove Assignment
+        </Button>
+      </AdminMode>
       <Button size="sm" class="text-sm font-bold cursor-not-allowed" variant="success" disabled>
         Assigned
       </Button>

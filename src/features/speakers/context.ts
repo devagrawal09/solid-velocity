@@ -102,7 +102,7 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
       });
     });
 
-    return { isAssigned, assignmentDisabled, emitAssign, emitUnassign };
+    return { isAssigned, assignmentDisabled, emitAssign, emitUnassign, assignments };
   },
   {
     isAssigned: () => {
@@ -115,6 +115,9 @@ export const [AssignmentProvider, useAssignment] = createContextProvider(
       throw new Error(`useAssignment was used outside <AssignmentProvider>`);
     },
     emitUnassign: () => {
+      throw new Error(`useAssignment was used outside <AssignmentProvider>`);
+    },
+    assignments: () => {
       throw new Error(`useAssignment was used outside <AssignmentProvider>`);
     }
   }

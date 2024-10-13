@@ -14,6 +14,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { getSessionizeData } from '../sessionize/api';
 import type { Category, Session } from '../sessionize/store';
 import { BookmarksProvider, useBookmarks } from '~/features/bookmarks';
+import { useAdmin } from '../admin';
 
 type TimeSlot = [string, string, Session[]];
 
@@ -60,11 +61,8 @@ export function Schedule() {
 }
 
 function isStartingSoonOrStarted(startsAt: string, endsAt: string) {
-  const now = utcToZonedTime(
-    new Date(),
-    // new Date('Oct 19 2023 2023 13:30:01 GMT-0400'), // for testing
-    'America/New_York'
-  );
+  const { clock } = useAdmin();
+  const now = utcToZonedTime(new Date(clock()), 'America/New_York');
 
   const startDiff = differenceInMinutes(new Date(startsAt), now, {
     roundingMethod: 'floor'
