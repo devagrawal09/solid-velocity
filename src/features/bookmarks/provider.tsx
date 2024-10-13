@@ -5,6 +5,8 @@ import { useAction, createAsync } from '@solidjs/router';
 import { createMemo } from 'solid-js';
 import { getUserBookmarks, bookmarkSessionFn, unbookmarkSessionFn } from './api';
 import { useClerk } from 'clerk-solidjs';
+import { showToast } from '~/components/ui/toast';
+import { getSessionizeData } from '../sessionize/api';
 
 export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
   const clerk = useClerk();
@@ -16,14 +18,16 @@ export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
   const bookmarkSessionAction = useAction(bookmarkSessionFn);
 
   const serverBookmarks = createAsync(() => getUserBookmarks(), { initialValue: [] });
+  const data = createAsync(() => getSessionizeData());
 
   const [bookmarkedSessions, setBookmarks] = makePersisted(createWritableMemo(serverBookmarks), {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     name: `bookmarks`
   });
 
-  function toggleBookmark(sessionId: string) {
+  async function toggleBookmark(sessionId: string) {
     const bookmarked = bookmarkedSessions().find(b => b === sessionId);
+    const session = data()?.sessions.find(s => s.id === sessionId);
 
     setBookmarks(bookmarks => {
       if (bookmarked) {
@@ -34,7 +38,24 @@ export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
     });
 
     if (isSignedIn())
-      return bookmarked ? unbookmarkSessionAction(sessionId) : bookmarkSessionAction(sessionId);
+      bookmarked
+        ? await unbookmarkSessionAction(sessionId)
+        : await bookmarkSessionAction(sessionId);
+
+    session &&
+      showToast({
+        title: bookmarked ? 'Removed bookmark' : 'Bookmarked session',
+        description: bookmarked ? (
+          <>
+            You have removed <strong>{toTruncated(session.title, 50)}</strong> from your bookmarks
+          </>
+        ) : (
+          <>
+            You have added <strong>{toTruncated(session.title, 50)}</strong> to your bookmarks
+          </>
+        ),
+        variant: bookmarked ? 'warning' : 'default'
+      });
   }
 
   function getBookmark(sessionId: string) {
@@ -43,3 +64,9 @@ export const [BookmarksProvider, useBookmarks] = createContextProvider(() => {
 
   return [getBookmark, toggleBookmark] as const;
 });
+
+function toTruncated(str: string, l: number) {
+  if (str.length <= l) return str;
+
+  return str.substring(0, l) + '...';
+}
