@@ -1,43 +1,53 @@
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { action, cache, createAsync } from '@solidjs/router';
+import { clientOnly } from '@solidjs/start';
+import { eq } from 'drizzle-orm';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createSignal } from 'solid-js';
-import { Button } from '~/components/ui/button';
-import { CollapsibleTrigger, CollapsibleContent, Collapsible } from '~/components/ui/collapsible';
-import { TextFieldLabel, TextFieldInput, TextField } from '~/components/ui/text-field';
-import { db } from '~/db/drizzle';
-import { attendeeProfiles, connectionTable } from './store';
+import { createSignal, Show } from 'solid-js';
 import { assertRequestAuth } from '~/auth';
-import { eq, or } from 'drizzle-orm';
+import { Button } from '~/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
+import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-field';
+import { db } from '~/db/drizzle';
+import { attendeeProfiles } from './store';
 
-export const connectionsFn = cache(async () => {
+export const getProfileAndConnections = cache(async () => {
   'use server';
 
   const { userId } = assertRequestAuth();
-  const [profile] = await db
+  let [profile] = await db
     .select()
     .from(attendeeProfiles)
     .where(eq(attendeeProfiles.userId, userId));
 
-  const connections = await db
-    .select()
-    .from(connectionTable)
-    .where(or(eq(connectionTable.from, profile.id), eq(connectionTable.to, profile.id)));
-  // TODO: fetch profile data using relations
+  if (!profile) {
+    // If there is no profile, that means this is first time user visits Attendee dashboard
+    // So we silently create a new profile for them
+    const clerkUser = await clerkClient.users.getUser(userId);
+    [profile] = await db
+      .insert(attendeeProfiles)
+      .values([
+        {
+          userId: userId,
+          name: clerkUser.fullName || '',
+          avatarUrl: clerkUser.imageUrl || '',
+          email: clerkUser.emailAddresses.length > 0 ? clerkUser.emailAddresses[0].emailAddress : ''
+        }
+      ])
+      .returning();
+  }
 
-  return connections;
-}, `connections`);
+  const connections = await db.query.connectionTable.findMany({
+    where: (connection, { eq, or }) =>
+      or(eq(connection.from, profile.id), eq(connection.to, profile.id)),
+    with: {
+      connectionReceiver: true,
+      connectionInitiator: true
+    }
+  });
 
-const getQRCode = cache(async () => {
-  'use server';
-
-  const { userId } = assertRequestAuth();
-
-  // get profile by user id
-  // if profile doesn't exist create it
-  // get name and avatar url from Clerk
-  // generate qr code using profile id
-  // return qr code
-}, `qr`);
+  return { profile, connections };
+}, `profile-and-connections`);
 
 const saveProfileFn = action(async (formData: FormData) => {
   'use server';
@@ -46,12 +56,13 @@ const saveProfileFn = action(async (formData: FormData) => {
   console.log(formData);
 });
 
+// QrComponnent need to be client-side because it relies on localStorage
+const QrCodeComp = clientOnly(() => import('./qrcode'));
+
 export function AttendeeDashboard() {
   const [open, setOpen] = createSignal(false);
 
-  const connections = createAsync(() => connectionsFn());
-  const qrCode = createAsync(() => getQRCode());
-  // TODO: locally cache this
+  const profileAndConnections = createAsync(() => getProfileAndConnections());
 
   return (
     <>
@@ -62,9 +73,9 @@ export function AttendeeDashboard() {
           Show QR Code
         </CollapsibleTrigger>
         <CollapsibleContent class="border rounded-xl p-3 my-2 border-gray-700 justify-center flex">
-          <div class="w-[300px] bg-gray-200 h-[300px] rounded text-black text-[70px] justify-center flex items-center">
-            QR code
-          </div>
+          <Show when={profileAndConnections()?.profile.id} fallback={<p>Loading QR Code...</p>}>
+            <QrCodeComp profileId={profileAndConnections()!.profile.id} />
+          </Show>
         </CollapsibleContent>
       </Collapsible>
       <Collapsible open={true}>
