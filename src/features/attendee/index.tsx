@@ -38,8 +38,7 @@ export const getProfileAndConnections = cache(async () => {
         {
           userId: userId,
           name: clerkUser.fullName || '',
-          avatarUrl: clerkUser.imageUrl || '',
-          email: clerkUser.emailAddresses.length > 0 ? clerkUser.emailAddresses[0].emailAddress : ''
+          avatarUrl: clerkUser.imageUrl || ''
         }
       ])
       .returning();
