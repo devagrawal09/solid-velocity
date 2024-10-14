@@ -1,13 +1,13 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { action, cache, createAsync } from '@solidjs/router';
+import { A, action, cache, createAsync, useSearchParams } from '@solidjs/router';
 import { clientOnly } from '@solidjs/start';
 import { eq } from 'drizzle-orm';
 import {
-  FaSolidChevronDown,
-  FaSolidChevronRight,
+  FaBrandsGithub,
   FaBrandsLinkedinIn,
   FaBrandsTwitter,
-  FaBrandsGithub
+  FaSolidChevronDown,
+  FaSolidChevronRight
 } from 'solid-icons/fa';
 import { SiMaildotru } from 'solid-icons/si';
 import { createSignal, For, Show } from 'solid-js';
@@ -16,6 +16,7 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-field';
+import { showToast, ToastVariant } from '~/components/ui/toast';
 import { db } from '~/db/drizzle';
 import { attendeeProfiles } from './store';
 
@@ -60,18 +61,17 @@ const saveProfileFn = action(async (formData: FormData) => {
   'use server';
   const { userId } = assertRequestAuth();
 
-  // TODO: update profile data in the database
-  const profileInput = Object.fromEntries(formData.entries());
+  const profileInput = Object.fromEntries(formData);
 
   await db
     .update(attendeeProfiles)
     .set({
-      email: profileInput.email ? String(profileInput.email) : undefined,
-      twitter: profileInput.twitter ? String(profileInput.twitter) : undefined,
-      github: profileInput.github ? String(profileInput.github) : undefined,
-      linkedin: profileInput.linkedin ? String(profileInput.linkedin) : undefined,
-      job: profileInput.job ? String(profileInput.job) : undefined,
-      company: profileInput.company ? String(profileInput.company) : undefined
+      email: profileInput.email != undefined ? String(profileInput.email) : undefined,
+      twitter: profileInput.twitter != undefined ? String(profileInput.twitter) : undefined,
+      github: profileInput.github != undefined ? String(profileInput.github) : undefined,
+      linkedin: profileInput.linkedin != undefined ? String(profileInput.linkedin) : undefined,
+      job: profileInput.job != undefined ? String(profileInput.job) : undefined,
+      company: profileInput.company != undefined ? String(profileInput.company) : undefined
     })
     .where(eq(attendeeProfiles.userId, userId));
 });
@@ -80,8 +80,29 @@ const saveProfileFn = action(async (formData: FormData) => {
 const QrCodeComp = clientOnly(() => import('./qrcode'));
 
 export function AttendeeDashboard() {
-  const [showQr, setshowQr] = createSignal(false);
-  const [showConnections, setshowConnections] = createSignal(false);
+  const [searchParams, _] = useSearchParams();
+  const [showQr, setshowQr] = createSignal(true);
+  const [showConnections, setshowConnections] = createSignal(true);
+  const [showProfileForm, setShowProfileForm] = createSignal(false);
+  const [showExportConnections, setShowExportConnections] = createSignal(false);
+
+  if (searchParams.status) {
+    let toastInfo: { description: string; variant: ToastVariant } | null = null;
+    switch (searchParams.status) {
+      case 'notfound':
+        toastInfo = { description: 'Cannot find this profile', variant: 'error' };
+        break;
+      case 'success':
+        toastInfo = { description: 'Sucessfully connected', variant: 'success' };
+        break;
+      case 'alreadyconnected':
+        toastInfo = { description: 'Already connected', variant: 'success' };
+        break;
+      default:
+        toastInfo = null;
+    }
+    toastInfo && showToast(toastInfo);
+  }
 
   const profileAndConnections = createAsync(() => getProfileAndConnections());
   const profile = () => profileAndConnections()?.profile;
@@ -101,14 +122,14 @@ export function AttendeeDashboard() {
           </Show>
         </CollapsibleContent>
       </Collapsible>
-      <Collapsible open={true} onOpenChange={setshowConnections}>
+      <Collapsible open={showConnections()} onOpenChange={setshowConnections}>
         <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
           {showConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
           Connections
         </CollapsibleTrigger>
         <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
           <Show when={connections()} fallback={<p>Loading Connections...</p>}>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-1.5 md:gap-3">
               <For each={connections()!}>
                 {connection => {
                   // Determine if the attendee is the initator or receiver in this connection
@@ -119,43 +140,48 @@ export function AttendeeDashboard() {
                     : connection.connectionInitiator;
                   return (
                     <Card>
-                      <CardHeader>
-                        <div class="w-full flex gap-2 justify-between">
+                      <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                        <div class="w-full flex gap-1 justify-between">
                           <div>
                             <CardTitle>{otherProfile.name}</CardTitle>
-                            <CardDescription class="flex flex-col">
-                              <p>{otherProfile.job}</p>
-                              <p>{otherProfile.company}</p>
+                            <CardDescription class="text-sm">
+                              {otherProfile.job}
+                              {otherProfile.job && <br />}
+                              {otherProfile.company}
                             </CardDescription>
                           </div>
                           <div>
                             <img
                               src={otherProfile.avatarUrl}
-                              width={40}
-                              height={40}
-                              class="rounded-full"
+                              class="rounded-full w-8 aspect-square"
                             />
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div class="flex flex-col gap-1">
-                          <p>
-                            <SiMaildotru class="inline" /> {otherProfile.email}
-                          </p>
+                      <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                        <div class="flex flex-col gap-1 text-[0.82rem]">
+                          {otherProfile.email && (
+                            <p class="inline-flex gap-1 items-center">
+                              <SiMaildotru class="inline" />
+                              <span>{otherProfile.email}</span>
+                            </p>
+                          )}
                           {otherProfile.linkedin && (
-                            <p>
-                              <FaBrandsLinkedinIn class="inline" /> {otherProfile.linkedin}
+                            <p class="inline-flex gap-1 items-center">
+                              <FaBrandsLinkedinIn class="inline" />
+                              <span>{otherProfile.linkedin.split('/').at(-1)}</span>
                             </p>
                           )}
                           {otherProfile.github && (
-                            <p>
-                              <FaBrandsGithub class="inline" /> {otherProfile.github}
+                            <p class="flex gap-1 items-center">
+                              <FaBrandsGithub class="inline" />
+                              <span>{otherProfile.github}</span>
                             </p>
                           )}
                           {otherProfile.twitter && (
-                            <p>
-                              <FaBrandsTwitter class="inline" /> {otherProfile.twitter}
+                            <p class="flex gap-1 items-center">
+                              <FaBrandsTwitter class="inline" />
+                              <span>{otherProfile.twitter}</span>
                             </p>
                           )}
                         </div>
@@ -169,38 +195,65 @@ export function AttendeeDashboard() {
         </CollapsibleContent>
       </Collapsible>
 
-      <form class="my-8 flex flex-col gap-4" method="post" action={saveProfileFn}>
-        <p>
-          This information will be shared with anyone who scans your QR code, including sponsors.
-        </p>
-        <TextField name="email" defaultValue={profile()?.email ?? undefined}>
-          <TextFieldLabel for="email">Email *</TextFieldLabel>
-          <TextFieldInput type="email" id="email" placeholder="Email" required />
-        </TextField>
-        <TextField name="company" defaultValue={profile()?.company ?? undefined}>
-          <TextFieldLabel for="company">Company</TextFieldLabel>
-          <TextFieldInput type="text" id="company" placeholder="Company" />
-        </TextField>
-        <TextField name="job" defaultValue={profile()?.job ?? undefined}>
-          <TextFieldLabel for="job">Job Title</TextFieldLabel>
-          <TextFieldInput type="text" id="job" placeholder="Job Title" />
-        </TextField>
-        <TextField name="linkedin" defaultValue={profile()?.linkedin ?? undefined}>
-          <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
-          <TextFieldInput type="url" id="linkedin" placeholder="LinkedIn" />
-        </TextField>
-        <TextField name="github" defaultValue={profile()?.github ?? undefined}>
-          <TextFieldLabel for="github">GitHub</TextFieldLabel>
-          <TextFieldInput type="url" id="github" placeholder="GitHub" />
-        </TextField>
-        <TextField name="twitter" defaultValue={profile()?.twitter ?? undefined}>
-          <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
-          <TextFieldInput type="url" id="twitter" placeholder="Twitter" />
-        </TextField>
-        <Button type="submit" variant="secondary">
-          Save
-        </Button>
-      </form>
+      <Collapsible open={showProfileForm()} onOpenChange={setShowProfileForm}>
+        <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+          {showProfileForm() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          Your Profile
+        </CollapsibleTrigger>
+        <CollapsibleContent class="p-2">
+          <form class="my-8 flex flex-col gap-4" method="post" action={saveProfileFn}>
+            <p>
+              This information will be shared with anyone who scans your QR code, including
+              sponsors.
+            </p>
+            <TextField name="name" defaultValue={profile()?.name ?? undefined}>
+              <TextFieldLabel for="name">Name *</TextFieldLabel>
+              <TextFieldInput type="text" id="name" placeholder="Name" required />
+            </TextField>
+            <TextField name="email" defaultValue={profile()?.email ?? undefined} required>
+              <TextFieldLabel for="email">Email *</TextFieldLabel>
+              <TextFieldInput type="email" id="email" placeholder="Email" required />
+            </TextField>
+            <TextField name="company" defaultValue={profile()?.company ?? undefined}>
+              <TextFieldLabel for="company">Company</TextFieldLabel>
+              <TextFieldInput type="text" id="company" placeholder="Company" />
+            </TextField>
+            <TextField name="job" defaultValue={profile()?.job ?? undefined}>
+              <TextFieldLabel for="job">Job Title</TextFieldLabel>
+              <TextFieldInput type="text" id="job" placeholder="Job Title" />
+            </TextField>
+            <TextField name="linkedin" defaultValue={profile()?.linkedin ?? undefined}>
+              <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
+              <TextFieldInput type="text" id="linkedin" placeholder="LinkedIn" />
+            </TextField>
+            <TextField name="github" defaultValue={profile()?.github ?? undefined}>
+              <TextFieldLabel for="github">GitHub</TextFieldLabel>
+              <TextFieldInput type="text" id="github" placeholder="GitHub" />
+            </TextField>
+            <TextField name="twitter" defaultValue={profile()?.twitter ?? undefined}>
+              <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
+              <TextFieldInput type="text" id="twitter" placeholder="Twitter" />
+            </TextField>
+            <Button type="submit" variant="secondary">
+              Save
+            </Button>
+          </form>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible open={showExportConnections()} onOpenChange={setShowExportConnections}>
+        <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+          {showExportConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          Export connections CSV
+        </CollapsibleTrigger>
+        <CollapsibleContent class="p-2">
+          <div class="flex flex-col gap-2">
+            <Button as={A} href="connection-export" download="connections-all.csv">
+              Download your connections as CSV
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </>
   );
 }
