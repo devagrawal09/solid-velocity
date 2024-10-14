@@ -24,14 +24,14 @@ export default function Header() {
       <Show when={speakerId()}>
         <A href={`/speaker`} class="text-lg">
           <Button variant="link" class="text-white">
-            Speaker Dashboard
+            Speaker
           </Button>
         </A>
       </Show>
-      <Show when={isSignedIn() && showAdminUi()}>
+      <Show when={isSignedIn()}>
         <A href={`/attendee`} class="text-lg">
           <Button variant="link" class="text-white">
-            Attendee Dashboard
+            Attendee
           </Button>
         </A>
       </Show>

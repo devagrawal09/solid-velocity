@@ -1,114 +1,589 @@
-import { action, cache, createAsync } from '@solidjs/router';
-import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createSignal } from 'solid-js';
-import { Button } from '~/components/ui/button';
-import { CollapsibleTrigger, CollapsibleContent, Collapsible } from '~/components/ui/collapsible';
-import { TextFieldLabel, TextFieldInput, TextField } from '~/components/ui/text-field';
-import { db } from '~/db/drizzle';
-import { attendeeProfiles, connectionTable } from './store';
+import { clerkClient } from '@clerk/clerk-sdk-node';
+import { A, action, cache, createAsync, useSearchParams } from '@solidjs/router';
+import { clientOnly } from '@solidjs/start';
+import { eq } from 'drizzle-orm';
+import {
+  FaBrandsGithub,
+  FaBrandsLinkedinIn,
+  FaBrandsTwitter,
+  FaSolidChevronDown,
+  FaSolidChevronRight
+} from 'solid-icons/fa';
+import { SiMaildotru } from 'solid-icons/si';
+import { createSignal, For, onMount, Show, Suspense } from 'solid-js';
 import { assertRequestAuth } from '~/auth';
-import { eq, or } from 'drizzle-orm';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
+import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-field';
+import { showToast } from '~/components/ui/toast';
+import { db } from '~/db/drizzle';
+import { attendeeProfiles } from './store';
 
-export const connectionsFn = cache(async () => {
+export const getProfileAndConnections = cache(async () => {
   'use server';
 
   const { userId } = assertRequestAuth();
-  const [profile] = await db
+  let [profile] = await db
     .select()
     .from(attendeeProfiles)
     .where(eq(attendeeProfiles.userId, userId));
 
-  const connections = await db
-    .select()
-    .from(connectionTable)
-    .where(or(eq(connectionTable.from, profile.id), eq(connectionTable.to, profile.id)));
-  // TODO: fetch profile data using relations
+  if (!profile) {
+    // If there is no profile, that means this is first time user visits Attendee dashboard
+    // So we silently create a new profile for them
+    const clerkUser = await clerkClient.users.getUser(userId);
+    [profile] = await db
+      .insert(attendeeProfiles)
+      .values([
+        {
+          userId: userId,
+          name: clerkUser.fullName || '',
+          avatarUrl: clerkUser.imageUrl || ''
+        }
+      ])
+      .returning();
+  }
 
-  return connections;
-}, `connections`);
+  const connections = await db.query.connectionTable.findMany({
+    where: (connection, { eq, or }) =>
+      or(eq(connection.from, profile.id), eq(connection.to, profile.id)),
+    with: {
+      connectionReceiver: true,
+      connectionInitiator: true
+    }
+  });
 
-const getQRCode = cache(async () => {
-  'use server';
-
-  const { userId } = assertRequestAuth();
-
-  // get profile by user id
-  // if profile doesn't exist create it
-  // get name and avatar url from Clerk
-  // generate qr code using profile id
-  // return qr code
-}, `qr`);
+  return { profile, connections };
+}, `profile-and-connections`);
 
 const saveProfileFn = action(async (formData: FormData) => {
   'use server';
+  const { userId } = assertRequestAuth();
 
-  // TODO: update profile data in the database
-  console.log(formData);
+  const profileInput = Object.fromEntries(formData);
+
+  await db
+    .update(attendeeProfiles)
+    .set({
+      email: profileInput.email != undefined ? String(profileInput.email) : undefined,
+      twitter: profileInput.twitter != undefined ? String(profileInput.twitter) : undefined,
+      github: profileInput.github != undefined ? String(profileInput.github) : undefined,
+      linkedin: profileInput.linkedin != undefined ? String(profileInput.linkedin) : undefined,
+      job: profileInput.job != undefined ? String(profileInput.job) : undefined,
+      company: profileInput.company != undefined ? String(profileInput.company) : undefined
+    })
+    .where(eq(attendeeProfiles.userId, userId));
 });
 
-export function AttendeeDashboard() {
-  const [open, setOpen] = createSignal(false);
+// QrComponnent need to be client-side because it relies on localStorage
+const QrCodeComp = clientOnly(() => import('./qrcode'));
 
-  const connections = createAsync(() => connectionsFn());
-  const qrCode = createAsync(() => getQRCode());
-  // TODO: locally cache this
+export function AttendeeDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showQr, setshowQr] = createSignal(true);
+  const [showConnections, setshowConnections] = createSignal(true);
+  const [showProfileForm, setShowProfileForm] = createSignal(false);
+  const [showExportConnections, setShowExportConnections] = createSignal(false);
+
+  const profileAndConnections = createAsync(() => getProfileAndConnections());
+  const profile = () => profileAndConnections()?.profile;
+  const connections = () => profileAndConnections()?.connections;
+
+  onMount(async () => {
+    const profileId = searchParams.profile;
+    const name = (await getProfileAndConnections()).connections.find(c => c.to === profileId)
+      ?.connectionReceiver.name;
+
+    if (searchParams.status) {
+      switch (searchParams.status) {
+        case 'notfound':
+          showToast({ description: 'Cannot find this profile', variant: 'error' });
+          break;
+        case 'success':
+          showToast({
+            description: (
+              <>
+                Successfully connected with <strong>{name}</strong>
+              </>
+            ),
+            variant: 'success'
+          });
+          break;
+        case 'alreadyconnected':
+          showToast({
+            description: (
+              <>
+                Already connected with <strong>{name}</strong>
+              </>
+            ),
+            variant: 'error'
+          });
+          break;
+      }
+    }
+
+    setSearchParams({ status: '', profile: '' });
+  });
 
   return (
     <>
       <p class="text-xl my-4">Your Profile</p>
-      <Collapsible open={open()} onOpenChange={setOpen}>
+      <Collapsible open={showQr()} onOpenChange={setshowQr}>
         <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
-          {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          {showQr() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
           Show QR Code
         </CollapsibleTrigger>
         <CollapsibleContent class="border rounded-xl p-3 my-2 border-gray-700 justify-center flex">
-          <div class="w-[300px] bg-gray-200 h-[300px] rounded text-black text-[70px] justify-center flex items-center">
-            QR code
-          </div>
+          <QrCodeComp />
         </CollapsibleContent>
       </Collapsible>
-      <Collapsible open={true}>
+      <Collapsible open={showConnections()} onOpenChange={setshowConnections}>
         <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
-          {/* {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />} */}
+          {showConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
           Connections
         </CollapsibleTrigger>
-        <CollapsibleContent class="border rounded-xl p-3 my-2 border-gray-700 justify-center flex">
-          {/* TODO: show connections in a grid of cards */}
+        <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
+          <Suspense fallback={<>Loading Your Connections...</>}>
+            <Show when={connections()?.length} fallback={<p>No Connections Yet!</p>}>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-1.5 md:gap-3">
+                <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For>
+                {/* <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For>
+                <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For>
+                <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For>
+                <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For>
+                <For each={connections()!}>
+                  {connection => {
+                    // Determine if the attendee is the initator or receiver in this connection
+                    const profileId = () => profile()!.id;
+                    const isInitiator = () => connection.connectionInitiator.id === profileId();
+                    const otherProfile = () =>
+                      isInitiator()
+                        ? connection.connectionReceiver
+                        : connection.connectionInitiator;
+
+                    return (
+                      <Card>
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
+                          <div class="w-full flex gap-1 justify-between">
+                            <div>
+                              <CardTitle>{otherProfile().name}</CardTitle>
+                              <CardDescription class="text-sm">
+                                {otherProfile().job}
+                                {otherProfile().job && <br />}
+                                {otherProfile().company}
+                              </CardDescription>
+                            </div>
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-8 aspect-square"
+                              />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                          <div class="flex flex-col gap-1 text-[0.82rem]">
+                            {otherProfile().email && (
+                              <p class="inline-flex gap-1 items-center">
+                                <SiMaildotru class="inline" />
+                                <span>{otherProfile().email}</span>
+                              </p>
+                            )}
+                            {otherProfile().linkedin && (
+                              <p class="inline-flex gap-1 items-center">
+                                <FaBrandsLinkedinIn class="inline" />
+                                <span>{otherProfile().linkedin}</span>
+                              </p>
+                            )}
+                            {otherProfile().github && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsGithub class="inline" />
+                                <span>{otherProfile().github}</span>
+                              </p>
+                            )}
+                            {otherProfile().twitter && (
+                              <p class="flex gap-1 items-center">
+                                <FaBrandsTwitter class="inline" />
+                                <span>{otherProfile().twitter}</span>
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }}
+                </For> */}
+              </div>
+            </Show>
+          </Suspense>
         </CollapsibleContent>
       </Collapsible>
 
-      <form class="my-8 flex flex-col gap-4" action={saveProfileFn}>
-        <p>
-          This information will be shared with anyone who scans your QR code, including sponsors.
-        </p>
-        <TextField>
-          <TextFieldLabel for="email">Email *</TextFieldLabel>
-          <TextFieldInput type="email" id="email" placeholder="Email" required />
-        </TextField>
-        <TextField>
-          <TextFieldLabel for="company">Company</TextFieldLabel>
-          <TextFieldInput type="text" id="company" placeholder="Company" />
-        </TextField>
-        <TextField>
-          <TextFieldLabel for="job">Job Title</TextFieldLabel>
-          <TextFieldInput type="text" id="job" placeholder="Job Title" />
-        </TextField>
-        <TextField>
-          <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
-          <TextFieldInput type="url" id="linkedin" placeholder="LinkedIn" />
-        </TextField>
-        <TextField>
-          <TextFieldLabel for="github">GitHub</TextFieldLabel>
-          <TextFieldInput type="url" id="github" placeholder="GitHub" />
-        </TextField>
-        <TextField>
-          <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
-          <TextFieldInput type="url" id="twitter" placeholder="Twitter" />
-        </TextField>
-        <Button type="submit" variant="secondary">
-          Save
-        </Button>
-      </form>
+      <Collapsible open={showProfileForm()} onOpenChange={setShowProfileForm}>
+        <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+          {showProfileForm() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          Your Profile
+        </CollapsibleTrigger>
+        <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
+          <form class="flex flex-col gap-4" method="post" action={saveProfileFn}>
+            <p>
+              This information will be shared with anyone who scans your QR code, including
+              sponsors.
+            </p>
+            <TextField name="name" defaultValue={profile()?.name ?? undefined}>
+              <TextFieldLabel for="name">Name *</TextFieldLabel>
+              <TextFieldInput type="text" id="name" placeholder="Name" required />
+            </TextField>
+            <TextField name="email" defaultValue={profile()?.email ?? undefined} required>
+              <TextFieldLabel for="email">Email *</TextFieldLabel>
+              <TextFieldInput type="email" id="email" placeholder="Email" required />
+            </TextField>
+            <TextField name="company" defaultValue={profile()?.company ?? undefined}>
+              <TextFieldLabel for="company">Company</TextFieldLabel>
+              <TextFieldInput type="text" id="company" placeholder="Company" />
+            </TextField>
+            <TextField name="job" defaultValue={profile()?.job ?? undefined}>
+              <TextFieldLabel for="job">Job Title</TextFieldLabel>
+              <TextFieldInput type="text" id="job" placeholder="Job Title" />
+            </TextField>
+            <TextField name="linkedin" defaultValue={profile()?.linkedin ?? undefined}>
+              <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
+              <TextFieldInput type="text" id="linkedin" placeholder="LinkedIn" />
+            </TextField>
+            <TextField name="github" defaultValue={profile()?.github ?? undefined}>
+              <TextFieldLabel for="github">GitHub</TextFieldLabel>
+              <TextFieldInput type="text" id="github" placeholder="GitHub" />
+            </TextField>
+            <TextField name="twitter" defaultValue={profile()?.twitter ?? undefined}>
+              <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
+              <TextFieldInput type="text" id="twitter" placeholder="Twitter" />
+            </TextField>
+            <Button type="submit" variant="secondary">
+              Save
+            </Button>
+          </form>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible open={showExportConnections()} onOpenChange={setShowExportConnections}>
+        <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+          {showExportConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          Export connections CSV
+        </CollapsibleTrigger>
+        <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
+          <div class="flex flex-col gap-2">
+            <Button as={A} href="connection-export" download="connections-all.csv">
+              Download your connections as CSV
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </>
   );
 }

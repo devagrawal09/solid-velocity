@@ -1,11 +1,11 @@
 import { Title } from '@solidjs/meta';
 import { RouteDefinition } from '@solidjs/router';
 import { Suspense } from 'solid-js';
-import { AttendeeDashboard, connectionsFn } from '~/features/attendee';
+import { AttendeeDashboard, getProfileAndConnections } from '~/features/attendee';
 
 export const route = {
   preload() {
-    connectionsFn();
+    getProfileAndConnections();
   }
 } satisfies RouteDefinition;
 

@@ -43,6 +43,20 @@
       "when": 1728765994155,
       "tag": "0005_stiff_joshua_kane",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1728844961522,
+      "tag": "0006_curved_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1728851129214,
+      "tag": "0007_colorful_puppet_master",
+      "breakpoints": true
     }
   ]
 }
