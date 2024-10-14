@@ -80,7 +80,7 @@ function SpeakerFeedbackLog() {
                     )}
                     {event.feedback.type === 'session-unassigned' && (
                       <>
-                        {speaker()?.fullName} assigned to{' '}
+                        {speaker()?.fullName} unassigned from{' '}
                         <A href={`/session/${event.feedback.sessionId}`} class="underline">
                           {getSession(event.feedback.sessionId)?.title}
                         </A>
@@ -130,14 +130,19 @@ function SpeakerAssignments() {
           acc.notAssigned.add(event.speakerId);
         }
 
+        if (event.feedback.type === 'speaker-removed') {
+          acc.assigned.delete(event.speakerId);
+          acc.notAssigned.delete(event.speakerId);
+        }
+
         if (event.feedback.type === 'session-assigned') {
           acc.assigned.add(event.speakerId);
           acc.notAssigned.delete(event.speakerId);
         }
 
         if (event.feedback.type === 'session-unassigned') {
-          acc.notAssigned.add(event.speakerId);
           acc.assigned.delete(event.speakerId);
+          acc.notAssigned.add(event.speakerId);
         }
 
         return acc;
