@@ -1,19 +1,20 @@
 import { createAsync } from '@solidjs/router';
 import QrCodeGenerator from 'qrcode';
+import { getProfileAndConnections } from '.';
 
-export default function QrCode({ profileId }: { profileId: string }) {
-  // First check if there is already a QR code stored in localStorage
-  // If no Qr code yet means no profile created yet
+export default function QrCode() {
   const qrCodeDataUrl = createAsync(async () => {
-    const existingQrCodeDataUrl = window.localStorage.getItem(`qr-code-data-url-${profileId}`);
+    const existingQrCodeDataUrl = window.localStorage.getItem(`qr-code-data-url`);
     if (existingQrCodeDataUrl) {
+      console.log(`found cached qr`);
       return existingQrCodeDataUrl;
     }
+    const profileId = (await getProfileAndConnections()).profile.id;
     const newQrCodeDataUrl = await QrCodeGenerator.toDataURL(
       `https://app.momentumdevcon.com/attendee/${profileId}`
     );
     console.log(newQrCodeDataUrl);
-    window.localStorage.setItem(`qr-code-data-url-${profileId}`, newQrCodeDataUrl);
+    window.localStorage.setItem(`qr-code-data-url`, newQrCodeDataUrl);
     return newQrCodeDataUrl;
   });
   return (

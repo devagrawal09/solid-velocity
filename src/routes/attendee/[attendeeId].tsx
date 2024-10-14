@@ -1,6 +1,8 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { cache, redirect, RouteDefinition } from '@solidjs/router';
-import { assertRequestAuth } from '~/auth';
+import { cache, createAsync, redirect, RouteDefinition, useParams } from '@solidjs/router';
+import { RedirectToSignIn } from 'clerk-solidjs';
+import { createEffect, createSignal, onCleanup, Show, Suspense } from 'solid-js';
+import { getRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
 import { attendeeProfiles, connectionTable } from '~/db/schema';
 
@@ -8,13 +10,16 @@ const visitAttendee = cache(async (attendeeId: string) => {
   'use server';
 
   // add attendeeId to connecions using current user profile id
-  const { userId } = assertRequestAuth();
+  const auth = getRequestAuth();
+  if (!auth?.userId) return `unauthorized`;
+
+  const userId = auth.userId;
   const visitedProfile = await db.query.attendeeProfiles.findFirst({
     where: (attendee, { eq }) => eq(attendee.id, attendeeId)
   });
 
   if (!visitedProfile) {
-    return redirect(`/attendee?status=notfound`);
+    throw redirect(`/attendee?status=notfound`);
   }
   // Find the profiles associated with this user
   let profile = await db.query.attendeeProfiles.findFirst({
@@ -38,7 +43,7 @@ const visitAttendee = cache(async (attendeeId: string) => {
   }
 
   if (profile.id === attendeeId) {
-    return redirect(`/attendee?status=notfound`);
+    throw redirect(`/attendee?status=notfound`);
   }
 
   const [connection] = await db
@@ -48,10 +53,10 @@ const visitAttendee = cache(async (attendeeId: string) => {
     .onConflictDoNothing();
 
   if (!connection) {
-    return redirect('/attendee?status=alreadyconnected');
+    throw redirect(`/attendee?status=alreadyconnected&profile=${visitedProfile.id}`);
   }
 
-  return redirect(`/attendee?status=success`);
+  throw redirect(`/attendee?status=success&profile=${visitedProfile.id}`);
 }, `visitAttendee`);
 
 export const route = {
@@ -61,12 +66,47 @@ export const route = {
 } satisfies RouteDefinition;
 
 export default function AttendeeView() {
+  const params = useParams<{ attendeeId: string }>();
+  const result = createAsync(() => visitAttendee(params.attendeeId));
+
   return (
     <div class="p-4">
-      Connecting attendee{' '}
-      <span role="img" aria-label="globe">
-        🌍
-      </span>
+      <Suspense
+        fallback={
+          <>
+            Looking for attendee profile{' '}
+            <span role="img" aria-label="globe">
+              🌍
+            </span>
+          </>
+        }
+      >
+        <Show when={result() === 'unauthorized'}>
+          <NotSignedIn />
+        </Show>
+      </Suspense>
+    </div>
+  );
+}
+
+function NotSignedIn() {
+  const [redirect, setRedirect] = createSignal(false);
+  createEffect(() => {
+    const t = setTimeout(() => setRedirect(true), 3000);
+    onCleanup(() => clearTimeout(t));
+  });
+  return (
+    <div class="p-4">
+      <Show
+        when={redirect()}
+        fallback={
+          <span>
+            You must be signed in to view this page. Redirecting you to the sign in page...
+          </span>
+        }
+      >
+        <RedirectToSignIn />
+      </Show>
     </div>
   );
 }
