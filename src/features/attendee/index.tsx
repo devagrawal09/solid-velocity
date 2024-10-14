@@ -1,22 +1,22 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { action, cache, createAsync } from '@solidjs/router';
+import { action, cache, createAsync, useSearchParams } from '@solidjs/router';
 import { clientOnly } from '@solidjs/start';
 import { eq } from 'drizzle-orm';
 import {
-  FaSolidChevronDown,
-  FaSolidChevronRight,
+  FaBrandsGithub,
   FaBrandsLinkedinIn,
   FaBrandsTwitter,
-  FaBrandsGithub
+  FaSolidChevronDown,
+  FaSolidChevronRight
 } from 'solid-icons/fa';
 import { SiMaildotru } from 'solid-icons/si';
-import { BiLogosLinkedin } from 'solid-icons/bi';
 import { createSignal, For, Show } from 'solid-js';
 import { assertRequestAuth } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-field';
+import { showToast, ToastVariant } from '~/components/ui/toast';
 import { db } from '~/db/drizzle';
 import { attendeeProfiles } from './store';
 
@@ -80,9 +80,28 @@ const saveProfileFn = action(async (formData: FormData) => {
 const QrCodeComp = clientOnly(() => import('./qrcode'));
 
 export function AttendeeDashboard() {
+  const [searchParams, _] = useSearchParams();
   const [showQr, setshowQr] = createSignal(true);
   const [showConnections, setshowConnections] = createSignal(true);
   const [showProfileForm, setShowProfileForm] = createSignal(false);
+
+  if (searchParams.status) {
+    let toastInfo: { description: string; variant: ToastVariant } | null = null;
+    switch (searchParams.status) {
+      case 'notfound':
+        toastInfo = { description: 'Cannot find this profile', variant: 'error' };
+        break;
+      case 'success':
+        toastInfo = { description: 'Sucessfully connected', variant: 'success' };
+        break;
+      case 'alreadyconnected':
+        toastInfo = { description: 'Already connected', variant: 'success' };
+        break;
+      default:
+        toastInfo = null;
+    }
+    toastInfo && showToast(toastInfo);
+  }
 
   const profileAndConnections = createAsync(() => getProfileAndConnections());
   const profile = () => profileAndConnections()?.profile;
