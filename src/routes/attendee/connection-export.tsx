@@ -3,8 +3,7 @@ import { assertRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
 import { mkConfig, generateCsv, asString } from 'export-to-csv';
 
-// Get all connections "to" user
-// i.e. all people who scanned this user
+// Get all connections of this user
 export async function GET() {
   const { userId } = assertRequestAuth();
   let profile = await db.query.attendeeProfiles.findFirst({
@@ -16,7 +15,8 @@ export async function GET() {
   }
 
   const connections = await db.query.connectionTable.findMany({
-    where: (connection, { eq }) => eq(connection.to, profile.id),
+    where: (connection, { eq, or }) =>
+      or(eq(connection.from, profile.id), eq(connection.to, profile.id)),
     with: {
       connectionReceiver: true,
       connectionInitiator: true
@@ -29,12 +29,24 @@ export async function GET() {
     const otherProfile = isInitiator
       ? connection.connectionReceiver
       : connection.connectionInitiator;
-    const { id, ...otherProfileWithoutId } = otherProfile;
-    return otherProfileWithoutId;
+    const { id, userId, ...otherProfileWithoutIds } = otherProfile;
+    // Add field "scannedBy"
+    const toReturn = { ...otherProfileWithoutIds, scannedBy: isInitiator ? 'me' : 'them' };
+    return toReturn;
   });
 
   const csvConfig = mkConfig({
-    columnHeaders: ['name', 'avatarUrl', 'email', 'twitter', 'linkedin', 'github', 'job', 'company']
+    columnHeaders: [
+      'name',
+      'avatarUrl',
+      'email',
+      'twitter',
+      'linkedin',
+      'github',
+      'job',
+      'company',
+      'scannedBy'
+    ]
   });
 
   const csv = generateCsv(csvConfig)(aggregatedConnections);

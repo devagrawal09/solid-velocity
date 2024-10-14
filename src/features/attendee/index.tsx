@@ -248,14 +248,8 @@ export function AttendeeDashboard() {
         </CollapsibleTrigger>
         <CollapsibleContent class="p-2">
           <div class="flex flex-col gap-2">
-            <Button as={A} href="connection-export/all" download="connections-all.csv">
-              All your connections
-            </Button>
-            <Button as={A} href="connection-export/from" download="connections-you-scanned.csv">
-              People who you scanned
-            </Button>
-            <Button as={A} href="connection-export/to" download="connections-scanned-you.csv">
-              People whom you have scanned
+            <Button as={A} href="connection-export" download="connections-all.csv">
+              Download your connections as CSV
             </Button>
           </div>
         </CollapsibleContent>
