@@ -61,5 +61,12 @@ export const route = {
 } satisfies RouteDefinition;
 
 export default function AttendeeView() {
-  return <div>View attendee</div>;
+  return (
+    <div class="p-4">
+      Connecting attendee{' '}
+      <span role="img" aria-label="globe">
+        🌍
+      </span>
+    </div>
+  );
 }
