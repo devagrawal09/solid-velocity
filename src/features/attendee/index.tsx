@@ -1,5 +1,5 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { action, cache, createAsync, useSearchParams } from '@solidjs/router';
+import { A, action, cache, createAsync, useSearchParams } from '@solidjs/router';
 import { clientOnly } from '@solidjs/start';
 import { eq } from 'drizzle-orm';
 import {
@@ -84,6 +84,7 @@ export function AttendeeDashboard() {
   const [showQr, setshowQr] = createSignal(true);
   const [showConnections, setshowConnections] = createSignal(true);
   const [showProfileForm, setShowProfileForm] = createSignal(false);
+  const [showExportConnections, setShowExportConnections] = createSignal(false);
 
   if (searchParams.status) {
     let toastInfo: { description: string; variant: ToastVariant } | null = null;
@@ -237,6 +238,26 @@ export function AttendeeDashboard() {
               Save
             </Button>
           </form>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible open={showExportConnections()} onOpenChange={setShowExportConnections}>
+        <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+          {showExportConnections() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+          Export connections CSV
+        </CollapsibleTrigger>
+        <CollapsibleContent class="p-2">
+          <div class="flex flex-col gap-2">
+            <Button as={A} href="connection-export/all" download="connections-all.csv">
+              All your connections
+            </Button>
+            <Button as={A} href="connection-export/from" download="connections-you-scanned.csv">
+              People who you scanned
+            </Button>
+            <Button as={A} href="connection-export/to" download="connections-scanned-you.csv">
+              People whom you have scanned
+            </Button>
+          </div>
         </CollapsibleContent>
       </Collapsible>
     </>
