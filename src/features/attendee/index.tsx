@@ -1,5 +1,13 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
-import { A, action, cache, createAsync, useSearchParams } from '@solidjs/router';
+import {
+  A,
+  action,
+  cache,
+  createAsync,
+  useAction,
+  useSearchParams,
+  useSubmission
+} from '@solidjs/router';
 import { clientOnly } from '@solidjs/start';
 import { eq } from 'drizzle-orm';
 import {
@@ -19,6 +27,8 @@ import { TextField, TextFieldInput, TextFieldLabel } from '~/components/ui/text-
 import { showToast } from '~/components/ui/toast';
 import { db } from '~/db/drizzle';
 import { attendeeProfiles } from './store';
+import { createEvent } from '~/lib/events';
+import { createToastListener } from '~/lib/toast';
 
 export const getProfileAndConnections = cache(async () => {
   'use server';
@@ -62,7 +72,6 @@ const saveProfileFn = action(async (formData: FormData) => {
   const { userId } = assertRequestAuth();
 
   const profileInput = Object.fromEntries(formData);
-
   await db
     .update(attendeeProfiles)
     .set({
@@ -126,6 +135,18 @@ export function AttendeeDashboard() {
     setSearchParams({ status: '', profile: '' });
   });
 
+  const [onSaveProfile, emitSaveProfile] = createEvent<FormData>();
+  const saveProfileAction = useAction(saveProfileFn);
+  const saveProfileSub = useSubmission(saveProfileFn);
+  const onProfileSaved = onSaveProfile(saveProfileAction);
+  createToastListener(
+    onProfileSaved(() => ({
+      title: 'Profile Updated',
+      description: 'Your profile has been updated successfully',
+      variant: 'success'
+    }))
+  );
+
   return (
     <>
       <p class="text-xl my-4">Your Profile</p>
@@ -159,8 +180,14 @@ export function AttendeeDashboard() {
 
                     return (
                       <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
+                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5 !pb-0 text-center">
+                          <div class="w-full flex flex-col gap-1 justify-between">
+                            <div>
+                              <img
+                                src={otherProfile().avatarUrl}
+                                class="rounded-full w-16 aspect-square m-auto"
+                              />
+                            </div>
                             <div>
                               <CardTitle>{otherProfile().name}</CardTitle>
                               <CardDescription class="text-sm">
@@ -169,356 +196,42 @@ export function AttendeeDashboard() {
                                 {otherProfile().company}
                               </CardDescription>
                             </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
                           </div>
                         </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
+                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0 text-center">
                           <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
+                            <Show when={otherProfile().email}>
+                              {email => <span>{email()}</span>}
+                            </Show>
+                            <div class="flex justify-between pt-1">
+                              <Show when={otherProfile().linkedin}>
+                                {linkedIn => (
+                                  <a href={linkedIn()} target="_blank">
+                                    <FaBrandsLinkedinIn size="20" class="inline" />
+                                  </a>
+                                )}
+                              </Show>
+                              <Show when={otherProfile().github}>
+                                {github => (
+                                  <a href={github()} target="_blank">
+                                    <FaBrandsGithub size="20" class="inline" />
+                                  </a>
+                                )}
+                              </Show>
+                              <Show when={otherProfile().twitter}>
+                                {twitter => (
+                                  <a href={twitter()} target="_blank">
+                                    <FaBrandsTwitter size="20" class="inline" />
+                                  </a>
+                                )}
+                              </Show>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   }}
                 </For>
-                {/* <For each={connections()!}>
-                  {connection => {
-                    // Determine if the attendee is the initator or receiver in this connection
-                    const profileId = () => profile()!.id;
-                    const isInitiator = () => connection.connectionInitiator.id === profileId();
-                    const otherProfile = () =>
-                      isInitiator()
-                        ? connection.connectionReceiver
-                        : connection.connectionInitiator;
-
-                    return (
-                      <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
-                            <div>
-                              <CardTitle>{otherProfile().name}</CardTitle>
-                              <CardDescription class="text-sm">
-                                {otherProfile().job}
-                                {otherProfile().job && <br />}
-                                {otherProfile().company}
-                              </CardDescription>
-                            </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
-                          <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }}
-                </For>
-                <For each={connections()!}>
-                  {connection => {
-                    // Determine if the attendee is the initator or receiver in this connection
-                    const profileId = () => profile()!.id;
-                    const isInitiator = () => connection.connectionInitiator.id === profileId();
-                    const otherProfile = () =>
-                      isInitiator()
-                        ? connection.connectionReceiver
-                        : connection.connectionInitiator;
-
-                    return (
-                      <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
-                            <div>
-                              <CardTitle>{otherProfile().name}</CardTitle>
-                              <CardDescription class="text-sm">
-                                {otherProfile().job}
-                                {otherProfile().job && <br />}
-                                {otherProfile().company}
-                              </CardDescription>
-                            </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
-                          <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }}
-                </For>
-                <For each={connections()!}>
-                  {connection => {
-                    // Determine if the attendee is the initator or receiver in this connection
-                    const profileId = () => profile()!.id;
-                    const isInitiator = () => connection.connectionInitiator.id === profileId();
-                    const otherProfile = () =>
-                      isInitiator()
-                        ? connection.connectionReceiver
-                        : connection.connectionInitiator;
-
-                    return (
-                      <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
-                            <div>
-                              <CardTitle>{otherProfile().name}</CardTitle>
-                              <CardDescription class="text-sm">
-                                {otherProfile().job}
-                                {otherProfile().job && <br />}
-                                {otherProfile().company}
-                              </CardDescription>
-                            </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
-                          <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }}
-                </For>
-                <For each={connections()!}>
-                  {connection => {
-                    // Determine if the attendee is the initator or receiver in this connection
-                    const profileId = () => profile()!.id;
-                    const isInitiator = () => connection.connectionInitiator.id === profileId();
-                    const otherProfile = () =>
-                      isInitiator()
-                        ? connection.connectionReceiver
-                        : connection.connectionInitiator;
-
-                    return (
-                      <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
-                            <div>
-                              <CardTitle>{otherProfile().name}</CardTitle>
-                              <CardDescription class="text-sm">
-                                {otherProfile().job}
-                                {otherProfile().job && <br />}
-                                {otherProfile().company}
-                              </CardDescription>
-                            </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
-                          <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }}
-                </For>
-                <For each={connections()!}>
-                  {connection => {
-                    // Determine if the attendee is the initator or receiver in this connection
-                    const profileId = () => profile()!.id;
-                    const isInitiator = () => connection.connectionInitiator.id === profileId();
-                    const otherProfile = () =>
-                      isInitiator()
-                        ? connection.connectionReceiver
-                        : connection.connectionInitiator;
-
-                    return (
-                      <Card>
-                        <CardHeader class="p-2.5 md:p-3.5 lg:p-5">
-                          <div class="w-full flex gap-1 justify-between">
-                            <div>
-                              <CardTitle>{otherProfile().name}</CardTitle>
-                              <CardDescription class="text-sm">
-                                {otherProfile().job}
-                                {otherProfile().job && <br />}
-                                {otherProfile().company}
-                              </CardDescription>
-                            </div>
-                            <div>
-                              <img
-                                src={otherProfile().avatarUrl}
-                                class="rounded-full w-8 aspect-square"
-                              />
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent class="p-2.5 md:p-3.5 lg:p-5 !pt-0">
-                          <div class="flex flex-col gap-1 text-[0.82rem]">
-                            {otherProfile().email && (
-                              <p class="inline-flex gap-1 items-center">
-                                <SiMaildotru class="inline" />
-                                <span>{otherProfile().email}</span>
-                              </p>
-                            )}
-                            {otherProfile().linkedin && (
-                              <p class="inline-flex gap-1 items-center">
-                                <FaBrandsLinkedinIn class="inline" />
-                                <span>{otherProfile().linkedin}</span>
-                              </p>
-                            )}
-                            {otherProfile().github && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsGithub class="inline" />
-                                <span>{otherProfile().github}</span>
-                              </p>
-                            )}
-                            {otherProfile().twitter && (
-                              <p class="flex gap-1 items-center">
-                                <FaBrandsTwitter class="inline" />
-                                <span>{otherProfile().twitter}</span>
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }}
-                </For> */}
               </div>
             </Show>
           </Suspense>
@@ -531,15 +244,15 @@ export function AttendeeDashboard() {
           Your Profile
         </CollapsibleTrigger>
         <CollapsibleContent class="border rounded-xl my-2 border-gray-700 p-2">
-          <form class="flex flex-col gap-4" method="post" action={saveProfileFn}>
+          <form
+            class="flex flex-col gap-4"
+            method="post"
+            onSubmit={e => (e.preventDefault(), emitSaveProfile(new FormData(e.currentTarget)))}
+          >
             <p>
               This information will be shared with anyone who scans your QR code, including
               sponsors.
             </p>
-            <TextField name="name" defaultValue={profile()?.name ?? undefined}>
-              <TextFieldLabel for="name">Name *</TextFieldLabel>
-              <TextFieldInput type="text" id="name" placeholder="Name" required />
-            </TextField>
             <TextField name="email" defaultValue={profile()?.email ?? undefined} required>
               <TextFieldLabel for="email">Email *</TextFieldLabel>
               <TextFieldInput type="email" id="email" placeholder="Email" required />
@@ -554,17 +267,17 @@ export function AttendeeDashboard() {
             </TextField>
             <TextField name="linkedin" defaultValue={profile()?.linkedin ?? undefined}>
               <TextFieldLabel for="linkedin">LinkedIn</TextFieldLabel>
-              <TextFieldInput type="text" id="linkedin" placeholder="LinkedIn" />
+              <TextFieldInput type="url" id="linkedin" placeholder="LinkedIn" />
             </TextField>
             <TextField name="github" defaultValue={profile()?.github ?? undefined}>
               <TextFieldLabel for="github">GitHub</TextFieldLabel>
-              <TextFieldInput type="text" id="github" placeholder="GitHub" />
+              <TextFieldInput type="url" id="github" placeholder="GitHub" />
             </TextField>
             <TextField name="twitter" defaultValue={profile()?.twitter ?? undefined}>
               <TextFieldLabel for="twitter">Twitter</TextFieldLabel>
-              <TextFieldInput type="text" id="twitter" placeholder="Twitter" />
+              <TextFieldInput type="url" id="twitter" placeholder="Twitter" />
             </TextField>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" disabled={saveProfileSub.pending}>
               Save
             </Button>
           </form>
