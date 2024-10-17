@@ -1,4 +1,4 @@
-import { MetaProvider, Title } from '@solidjs/meta';
+import { Link, MetaProvider, Title } from '@solidjs/meta';
 import { Router } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
 import { ClerkProvider } from 'clerk-solidjs';
@@ -15,6 +15,7 @@ export default function App() {
         <DefaultErrorBoundary>
           <MetaProvider>
             <Title>Momentum Developer Conference</Title>
+            <Link rel='manifest' href="/manifest.json" />
             <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
               <Suspense>
                 <Header />

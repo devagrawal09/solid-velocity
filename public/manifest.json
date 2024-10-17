@@ -1,0 +1,17 @@
+{
+  "name": "Momentum App",
+  "start_url": ".",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "square-logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "square-logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
