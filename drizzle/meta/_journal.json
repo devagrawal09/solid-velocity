@@ -57,6 +57,13 @@
       "when": 1728851129214,
       "tag": "0007_colorful_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1729161312888,
+      "tag": "0008_regular_stark_industries",
+      "breakpoints": true
     }
   ]
 }
