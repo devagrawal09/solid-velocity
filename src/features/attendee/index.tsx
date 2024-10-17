@@ -17,7 +17,6 @@ import {
   FaSolidChevronDown,
   FaSolidChevronRight
 } from 'solid-icons/fa';
-import { SiMaildotru } from 'solid-icons/si';
 import { createSignal, For, onMount, Show, Suspense } from 'solid-js';
 import { assertRequestAuth } from '~/auth';
 import { Button } from '~/components/ui/button';
@@ -75,6 +74,7 @@ const saveProfileFn = action(async (formData: FormData) => {
   await db
     .update(attendeeProfiles)
     .set({
+      name: profileInput.name != undefined ? String(profileInput.name) : undefined,
       email: profileInput.email != undefined ? String(profileInput.email) : undefined,
       twitter: profileInput.twitter != undefined ? String(profileInput.twitter) : undefined,
       github: profileInput.github != undefined ? String(profileInput.github) : undefined,
@@ -253,6 +253,10 @@ export function AttendeeDashboard() {
               This information will be shared with anyone who scans your QR code, including
               sponsors.
             </p>
+            <TextField name="name" defaultValue={profile()?.name ?? undefined} required>
+              <TextFieldLabel for="name">Name *</TextFieldLabel>
+              <TextFieldInput type="text" id="name" placeholder="Name" required />
+            </TextField>
             <TextField name="email" defaultValue={profile()?.email ?? undefined} required>
               <TextFieldLabel for="email">Email *</TextFieldLabel>
               <TextFieldInput type="email" id="email" placeholder="Email" required />
