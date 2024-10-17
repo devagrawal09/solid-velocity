@@ -1,12 +1,21 @@
-import { eq } from 'drizzle-orm';
-import { json, pgTable, text } from 'drizzle-orm/pg-core';
-import { db } from './drizzle';
+import { createStorage } from 'unstorage';
+import vercelKVDriver from 'unstorage/drivers/vercel-kv';
+import { consola } from 'consola';
 
 type StorageValue = null | string | number | boolean | object;
 
-export const cacheTable = pgTable(`cache-entries`, {
-  id: text(`id`).primaryKey(),
-  value: json('value').$type<CachedData<any>>().notNull()
+const kvUrl = process.env.KV_REST_API_URL;
+// if (!kvUrl) throw new Error('KV_REST_API_URL is not set');
+
+const kvToken = process.env.KV_REST_API_TOKEN;
+// if (!kvToken) throw new Error('KV_REST_API_URL is not set');
+
+export const storage = createStorage({
+  driver: vercelKVDriver({
+    url: kvUrl,
+    token: kvToken,
+    base: 'velocity'
+  })
 });
 
 type CachedData<D> = { data: D; timestamp?: number };
@@ -19,37 +28,26 @@ export function serverCache<A = void, D = StorageValue>(
   const storageKey = `uncache/${cacheKey}`;
 
   return async (a: A) => {
-    // const cachedData = await storage.getItem<CachedData<D>>(storageKey);
-    const [cachedData] = await db.select().from(cacheTable).where(eq(cacheTable.id, storageKey));
+    const cachedData = await storage.getItem<CachedData<D>>(storageKey);
     if (!cachedData) {
-      console.log(`Cache miss: ${cacheKey}`);
+      consola.log(`Cache miss: ${cacheKey}`);
       const data = await fetchData(a);
-      // await storage.setItem<CachedData<D>>(storageKey, { data, timestamp: new Date().getTime() });
-      await db.insert(cacheTable).values({
-        id: storageKey,
-        value: {
-          data,
-          timestamp: new Date().getTime()
-        }
-      });
+      await storage.setItem<CachedData<D>>(storageKey, { data, timestamp: new Date().getTime() });
       return data;
     }
     // Check if cached data is older than a day
     const now = new Date().getTime();
-    const cachedDataTimestamp = cachedData.value.timestamp;
+    const cachedDataTimestamp = cachedData.timestamp;
     const isDataStale = cachedDataTimestamp ? now - cachedDataTimestamp > ttl : true;
 
     if (isDataStale) {
-      console.log(`Cache stale: ${cacheKey}`);
+      consola.log(`Cache stale: ${cacheKey}`);
       // Refetch fresh data
       const data = await fetchData(a);
-      await db
-        .update(cacheTable)
-        .set({ value: { data, timestamp: new Date().getTime() } })
-        .where(eq(cacheTable.id, storageKey));
+      await storage.setItem<CachedData<D>>(storageKey, { data, timestamp: new Date().getTime() });
       return data;
     }
-    console.log(`Cache hit: ${cacheKey}`);
-    return cachedData.value.data;
+    consola.log(`Cache hit: ${cacheKey}`);
+    return cachedData.data;
   };
 }
