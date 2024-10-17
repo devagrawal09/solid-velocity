@@ -1,3 +1,5 @@
+'use server';
+
 import { z } from 'zod';
 import { serverCache } from '~/db/kv';
 
