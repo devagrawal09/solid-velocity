@@ -2,7 +2,7 @@ import { useClerk } from 'clerk-solidjs';
 import { createSignal, ParentProps, Show } from 'solid-js';
 
 const [adminMode, setAdminMode] = createSignal(false);
-const [clock, overrideClock] = createSignal(``);
+const [clock, overrideClock] = createSignal(new Date());
 export const toggleAdminMode = () => setAdminMode(!adminMode());
 
 export const useAdmin = () => {
