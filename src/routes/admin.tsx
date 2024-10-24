@@ -11,13 +11,15 @@ import {
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
+import { BsEmojiFrownFill, BsEmojiNeutralFill, BsEmojiSmileFill } from 'solid-icons/bs';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
 import { useAdmin } from '~/features/admin';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
+import { approveAttendeeFeedbackFn, getAllSessionFeedbackFn } from '~/features/feedback/api';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Session, Speaker } from '~/features/sessionize/store';
 import { approveFeedbackFn } from '~/features/speakers/api';
@@ -47,7 +49,8 @@ export default function AdminPage() {
         <SessionAssignments />
         <UploadSpeakerSheet />
         <SpeakerFeedbackApproval />
-        <GlobalClock />
+        {/* <GlobalClock /> */}
+        <AttendeeFeedbackApproval />
       </main>
     </main>
   );
@@ -376,31 +379,31 @@ function UploadSpeakerSheet() {
   );
 }
 
-function GlobalClock() {
-  const [open, setOpen] = createSignal(false);
-  const { clock, overrideClock } = useAdmin();
+// function GlobalClock() {
+//   const [open, setOpen] = createSignal(false);
+//   const { clock, overrideClock } = useAdmin();
 
-  return (
-    <Collapsible open={open()} onOpenChange={setOpen}>
-      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
-        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
-        Global Clock Override
-      </CollapsibleTrigger>
-      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
-        Current Time:{' '}
-        {clock() ? utcToZonedTime(new Date(clock()), 'America/New_York').toString() : ``}
-        <br />
-        Override Time{' '}
-        <input
-          type="datetime-local"
-          value={clock()}
-          class="text-black"
-          onInput={e => overrideClock(e.currentTarget.value)}
-        />
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
+//   return (
+//     <Collapsible open={open()} onOpenChange={setOpen}>
+//       <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+//         {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+//         Global Clock Override
+//       </CollapsibleTrigger>
+//       <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+//         Current Time:{' '}
+//         {clock() ? utcToZonedTime(new Date(clock()), 'America/New_York').toString() : ``}
+//         <br />
+//         Override Time{' '}
+//         <input
+//           type="datetime-local"
+//           value={clock()}
+//           class="text-black"
+//           onInput={e => overrideClock(e.currentTarget.value)}
+//         />
+//       </CollapsibleContent>
+//     </Collapsible>
+//   );
+// }
 
 function readFileAsync(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -411,7 +414,7 @@ function readFileAsync(file: File) {
   });
 }
 
-type Submission = {
+type SpeakerFeedbackSubmission = {
   data: SpeakerFeedbackFormData;
   session: Session;
   speaker: Speaker;
@@ -459,7 +462,7 @@ function SpeakerFeedbackApproval() {
         }
       }
       return acc;
-    }, [] as Submission[]);
+    }, [] as SpeakerFeedbackSubmission[]);
 
   const [onApprove, emitApprove] = createEvent<{
     speakerId: string;
@@ -479,7 +482,7 @@ function SpeakerFeedbackApproval() {
       description: `Feedback approved`
     }))
   );
-  const [selectedSubmission, setSelectionSubmission] = createSignal<Submission>();
+  const [selectedSubmission, setSelectionSubmission] = createSignal<SpeakerFeedbackSubmission>();
 
   return (
     <Collapsible open={open()} onOpenChange={setOpen}>
@@ -592,6 +595,124 @@ function SpeakerFeedbackApproval() {
               )}
             </Show>
           </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+type AttendeeFeedbackSubmission = {
+  sessionId: string;
+  userId: string;
+  rating?: number;
+  review?: string;
+  approved: boolean;
+};
+function AttendeeFeedbackApproval() {
+  const [open, setOpen] = createSignal(false);
+
+  const attendeeFeedbackEvents = createAsync(() => getAllSessionFeedbackFn());
+
+  const data = createAsync(() => getSessionizeData());
+  const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
+  const getSpeaker = (speakerId: string) => data()?.speakers.find(s => s.id === speakerId);
+
+  const feedbackSubmissions = () =>
+    attendeeFeedbackEvents()?.reduce((acc, event) => {
+      const existing = acc.find(x => x.sessionId === event.sessionId);
+      if (existing) {
+        if (event.feedback.type === 'rated') {
+          existing.rating = event.feedback.rating;
+        }
+
+        if (event.feedback.type === 'reviewed') {
+          existing.review = event.feedback.review;
+        }
+
+        if (event.feedback.type === 'approved') {
+          // @ts-expect-error
+          const approving = acc.find(x => x.userId === event.feedback.userId);
+          if (approving) approving.approved = true;
+        }
+
+        return acc;
+      }
+      return [
+        ...acc,
+        { sessionId: event.sessionId, userId: event.userId, ...event.feedback, approved: false }
+      ];
+    }, [] as AttendeeFeedbackSubmission[]);
+
+  const [onApprove, emitApprove] = createEvent<{
+    userId: string;
+    sessionId: string;
+  }>();
+  const approveFeedback = useAction(approveAttendeeFeedbackFn);
+  const approveFeedbackSubmission = useSubmissions(approveAttendeeFeedbackFn);
+
+  const isApproving = (userId: string, sessionId: string) =>
+    approveFeedbackSubmission.find(
+      s => s.input[0].userId === userId && s.input[0].sessionId === sessionId
+    )?.pending;
+
+  const onApproved = onApprove(approveFeedback);
+  createToastListener(
+    onApproved(() => ({
+      title: 'Feedback Approved',
+      description: `Feedback approved`
+    }))
+  );
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Attendee Feedback Approval
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+        <Button
+          variant="success"
+          disabled={approveFeedbackSubmission.pending}
+          onClick={() => {
+            feedbackSubmissions()?.forEach(submission => {
+              emitApprove({
+                sessionId: submission.sessionId,
+                userId: submission.userId
+              });
+            });
+          }}
+        >
+          Approve All Speaker Feedback
+        </Button>
+        <div class="flex mt-8 h-[800px] overflow-scroll">
+          <For each={feedbackSubmissions()}>
+            {submission => (
+              <li class={clsx('border-b border-gray-500 p-2 bg-white bg-opacity-10 text-center')}>
+                <div class="text-center">
+                  <Switch>
+                    <Match when={submission.rating === 0}>
+                      <span class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2">
+                        <BsEmojiFrownFill />
+                      </span>
+                    </Match>
+                    <Match when={submission.rating === 1}>
+                      <span class="py-4 text-2xl flex justify-center bg-yellow-500 bg-opacity-50 rounded m-2">
+                        <BsEmojiNeutralFill />
+                      </span>
+                    </Match>
+                    <Match when={submission.rating === 2}>
+                      <span class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2">
+                        <BsEmojiSmileFill />
+                      </span>
+                    </Match>
+                  </Switch>
+                </div>
+                <Show when={submission.review} fallback={<em class="opacity-70">No review</em>}>
+                  <p>{submission.review}</p>
+                </Show>
+              </li>
+            )}
+          </For>
         </div>
       </CollapsibleContent>
     </Collapsible>

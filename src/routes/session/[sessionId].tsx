@@ -7,6 +7,7 @@ import { FaSolidArrowUpShortWide, FaSolidClock, FaSolidMapPin, FaSolidTags } fro
 import { createMemo, For, Show, Suspense } from 'solid-js';
 import { useAdmin } from '~/features/admin';
 import { AttendeeFeedbackForm } from '~/features/feedback';
+import { ViewAttendeeFeedback } from '~/features/feedback/view';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
 import { createShowFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
@@ -66,7 +67,15 @@ export default function SessionPage() {
                 });
 
                 return (
-                  <Show when={!isCurrentSpeaker()} fallback={<ViewSpeakerFeedback />}>
+                  <Show
+                    when={!isCurrentSpeaker()}
+                    fallback={
+                      <>
+                        <ViewSpeakerFeedback />
+                        <ViewAttendeeFeedback />
+                      </>
+                    }
+                  >
                     <Show
                       when={hasTalkStarted()}
                       fallback={

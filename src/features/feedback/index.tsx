@@ -5,7 +5,7 @@ import { Match, Show, Switch } from 'solid-js';
 import { Button } from '~/components/ui/button';
 import { createEmitter, createEvent, createSubject } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
-import { getSessionFeedback, rateSessionFn, reviewSessionFn } from './api';
+import { getAttendeeSessionFeedback, rateSessionFn, reviewSessionFn } from './api';
 import { Rating } from './store';
 
 type SessionFeedback = {
@@ -15,7 +15,7 @@ type SessionFeedback = {
 
 export function AttendeeFeedbackForm(props: { sessionId: string }) {
   const onServerFeedback = createEmitter(
-    createAsync(() => getSessionFeedback(props.sessionId), { initialValue: {} })
+    createAsync(() => getAttendeeSessionFeedback(props.sessionId), { initialValue: {} })
   );
 
   const [onStateChange, emitStateChange] = createEvent<'rating' | 'review'>();

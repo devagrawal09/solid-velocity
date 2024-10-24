@@ -8,14 +8,18 @@ export const attendeeFeedbackEvents = pgTable(`attendee-feedback-events`, {
   userId: text(`userId`).notNull(),
   sessionId: text(`sessionId`).notNull(),
   feedback: json('feedback')
-    .$type<{ type: 'rated'; rating: Rating } | { type: 'reviewed'; review: string }>()
+    .$type<
+      | { type: 'rated'; rating: Rating }
+      | { type: 'reviewed'; review: string }
+      | { type: 'approved'; by: string }
+    >()
     .notNull()
 });
 
 export type FeedbackEvent = typeof attendeeFeedbackEvents.$inferInsert;
 
 async function getFeedbackEvents(
-  { userId, sessionId }: { userId: string; sessionId: string },
+  { userId, sessionId }: { userId?: string; sessionId?: string },
   tx: PgTransaction<any, any, any>
 ) {
   return tx
@@ -23,8 +27,8 @@ async function getFeedbackEvents(
     .from(attendeeFeedbackEvents)
     .where(
       and(
-        eq(attendeeFeedbackEvents.userId, userId),
-        eq(attendeeFeedbackEvents.sessionId, sessionId)
+        userId ? eq(attendeeFeedbackEvents.userId, userId) : undefined,
+        sessionId ? eq(attendeeFeedbackEvents.sessionId, sessionId) : undefined
       )
     );
 }
@@ -84,4 +88,48 @@ export async function getSession(
     },
     {} as { rating?: Rating; review?: string }
   );
+}
+
+export async function getSessionFeedback(sessionId: string, tx: PgTransaction<any, any, any>) {
+  const events = await getFeedbackEvents({ sessionId }, tx);
+
+  return events
+    .reduce(
+      (acc, event) => {
+        const existing = acc.find(x => x.userId === event.userId);
+        if (existing) {
+          if (event.feedback.type === 'rated') {
+            existing.rating = event.feedback.rating;
+          }
+
+          if (event.feedback.type === 'reviewed') {
+            existing.review = event.feedback.review;
+          }
+
+          if (event.feedback.type === 'approved') {
+            existing.approved = true;
+          }
+
+          return acc;
+        }
+        return [...acc, { userId: event.userId, ...event.feedback, approved: false }];
+      },
+      [] as { rating?: Rating; review?: string; userId: string; approved: boolean }[]
+    )
+    .map(({ userId, ...rest }) => rest)
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    .sort((a, b) => (b.review?.length || 0) - (a.review?.length || 0));
+}
+
+export async function getAllSessionFeedback(tx: PgTransaction<any, any, any>) {
+  const events = await getFeedbackEvents({}, tx);
+
+  return events;
+}
+
+export async function approveAttendeeFeedback(
+  { userId, sessionId, by }: { userId: string; sessionId: string; by: string },
+  tx: PgTransaction<any, any, any>
+) {
+  return publishFeedbackEvent([{ feedback: { type: 'approved', by }, userId, sessionId }], tx);
 }
