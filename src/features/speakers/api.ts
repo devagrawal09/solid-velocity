@@ -2,9 +2,11 @@ import { action, cache, redirect } from '@solidjs/router';
 import { assertRequestAdmin, getRequestAuth } from '~/auth';
 import { db } from '~/db/drizzle';
 import {
+  approveFeedback,
   assignSpeakerToSession,
   getAllAssignments,
   getFeedback,
+  getFeedbackForSession,
   getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
@@ -14,6 +16,7 @@ import {
   submitFeedback,
   unassignSpeakerFromSession
 } from './store';
+import { getSessionizeData } from '../sessionize/api';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -81,6 +84,19 @@ export const getFeedbackFn = cache(async (sessionId: string) => {
   return result;
 }, 's2s/feedback');
 
+export const getAllFeedbackFn = cache(async () => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+  const data = await getSessionizeData();
+  const session = data.sessions.find(s => s.speakers.includes(speakerId));
+  if (!session) return [];
+
+  const result = await db.transaction(tx => getFeedbackForSession({ sessionId: session.id }, tx));
+
+  return result;
+}, 's2s/all-feedback');
+
 export const signUpSpeakerFn = action(async () => {
   'use server';
 
@@ -90,6 +106,20 @@ export const signUpSpeakerFn = action(async () => {
 
   return result;
 });
+
+export const approveFeedbackFn = action(
+  async ({ speakerId, sessionId }: { speakerId: string; sessionId: string }) => {
+    'use server';
+
+    const { userId } = assertRequestAdmin();
+
+    const result = await db.transaction(tx =>
+      approveFeedback({ speakerId, sessionId, by: userId }, tx)
+    );
+
+    return result;
+  }
+);
 
 export const assignToSessionFn = action(async (sessionId: string) => {
   'use server';

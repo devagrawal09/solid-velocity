@@ -124,7 +124,7 @@ export function SpeakerFeedbackForm(props: { sessionId: string }) {
   return (
     <div
       class={clsx(
-        'rounded-sm text-sm  text-center my-2 py-2',
+        'rounded-sm text-sm text-center my-2 py-2',
         isAssigned() ? 'bg-momentum' : 'bg-white bg-opacity-10'
       )}
     >

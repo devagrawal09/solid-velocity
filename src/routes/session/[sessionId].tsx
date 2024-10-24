@@ -11,6 +11,7 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
 import { createShowFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
 import { SpeakerImpersonator } from '~/features/speakers/impersonator';
+import { ViewSpeakerFeedback } from '~/features/speakers/view';
 
 export const route = {
   preload() {
@@ -65,7 +66,7 @@ export default function SessionPage() {
                 });
 
                 return (
-                  <Show when={!isCurrentSpeaker()}>
+                  <Show when={!isCurrentSpeaker()} fallback={<ViewSpeakerFeedback />}>
                     <Show
                       when={hasTalkStarted()}
                       fallback={

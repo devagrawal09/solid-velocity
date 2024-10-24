@@ -17,7 +17,8 @@ type SpeakerEventData =
   | { type: 'session-unassigned'; sessionId: string }
   | { type: 'speaker-signedup' }
   | { type: 'speaker-removed' }
-  | { type: 'session-feedback'; sessionId: string; data: SpeakerFeedbackFormData };
+  | { type: 'session-feedback'; sessionId: string; data: SpeakerFeedbackFormData }
+  | { type: 'feedback-approved'; sessionId: string; by: string };
 
 export const speakerFeedbackEvents = pgTable(`speaker-feedback-events`, {
   id: uuid(`id`).defaultRandom().primaryKey(),
@@ -237,6 +238,68 @@ export async function submitFeedback(
 ) {
   return publishSpeakerEvent(
     [{ feedback: { type: 'session-feedback', sessionId, data }, speakerId }],
+    tx
+  );
+}
+
+export async function getFeedbackForSession(
+  {
+    sessionId
+  }: {
+    sessionId: string;
+  },
+  tx: PgTransaction<any, any, any>
+) {
+  const start = performance.now();
+  const events = await getSpeakerEvents(tx);
+
+  const feedback = events.reduce(
+    (acc, ev) => {
+      if (ev.feedback.type === 'session-feedback' && ev.feedback.sessionId === sessionId)
+        acc.push({
+          speakerId: ev.speakerId,
+          data: ev.feedback.data,
+          sessionId: ev.feedback.sessionId,
+          approved: false
+        });
+
+      if (ev.feedback.type === 'feedback-approved' && ev.feedback.sessionId === sessionId)
+        acc.find(s => s.speakerId === ev.speakerId)!.approved = true;
+
+      return acc;
+    },
+    [] as {
+      sessionId: string;
+      speakerId: string;
+      data: SpeakerFeedbackFormData;
+      approved: boolean;
+    }[]
+  );
+
+  const filtered = feedback.filter(f => f.approved);
+  const end = performance.now();
+  console.log(`getFeedbackForSession took ${end - start}ms`);
+  return filtered;
+}
+
+export async function approveFeedback(
+  {
+    speakerId,
+    sessionId,
+    by
+  }: {
+    speakerId: string;
+    sessionId: string;
+    by: string;
+  },
+  tx: PgTransaction<any, any, any>
+) {
+  const session = await getSessionForSpeaker(speakerId);
+
+  if (!session) return new Error('Invalid speaker id');
+
+  return publishSpeakerEvent(
+    [{ feedback: { type: 'feedback-approved', sessionId, by }, speakerId }],
     tx
   );
 }
