@@ -11,8 +11,17 @@ import {
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { BsEmojiFrownFill, BsEmojiNeutralFill, BsEmojiSmileFill } from 'solid-icons/bs';
-import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
-import { createMemo, createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
+import { FaSolidChevronDown, FaSolidChevronRight, FaSolidObjectGroup } from 'solid-icons/fa';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Suspense,
+  Switch
+} from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
@@ -613,7 +622,7 @@ type AttendeeFeedbackSubmission = {
 };
 
 function AttendeeFeedbackApproval() {
-  const [open, setOpen] = createSignal(false);
+  const [open, setOpen] = createSignal(true);
 
   const attendeeFeedbackEvents = createAsync(() => getAllSessionFeedbackFn());
 
@@ -699,6 +708,13 @@ function AttendeeFeedbackApproval() {
     }))
   );
 
+  const [ratingFilter, setRatingFilter] = createSignal<0 | 1 | 2>();
+
+  const unapproveCount = () =>
+    Object.values(feedbackSubmissions())
+      .flat()
+      .reduce((acc, entry) => (entry.approved ? acc : acc + 1), 0);
+
   return (
     <Collapsible open={open()} onOpenChange={setOpen}>
       <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
@@ -706,98 +722,142 @@ function AttendeeFeedbackApproval() {
         Attendee Feedback Approval
       </CollapsibleTrigger>
       <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
-        <Button
-          variant="success"
-          disabled={approvingAllSubmission.pending}
-          onClick={emitApproveAll}
-        >
-          Approve All Attendee Feedback
-        </Button>
+        <div class="flex mb-2">
+          <Button
+            variant="success"
+            disabled={approvingAllSubmission.pending || !unapproveCount()}
+            onClick={emitApproveAll}
+          >
+            Approve All Attendee Feedback
+          </Button>
+
+          <div class="grow" />
+
+          <div class="flex flex-col text-center">
+            <p>Filter by rating</p>
+            <div class="flex">
+              <button
+                onClick={() => setRatingFilter(filter => (filter === 0 ? undefined : 0))}
+                class={clsx(
+                  'p-3 text-xl border flex justify-center bg-red-500 bg-opacity-50 rounded m-1',
+                  ratingFilter() === 0 ? 'border-white' : 'border-transparent'
+                )}
+              >
+                <BsEmojiFrownFill />
+              </button>
+              <button
+                onClick={() => setRatingFilter(filter => (filter === 1 ? undefined : 1))}
+                class={clsx(
+                  'p-3 text-xl border flex justify-center bg-yellow-500 bg-opacity-50 rounded m-1',
+                  ratingFilter() === 1 ? 'border-white' : 'border-transparent'
+                )}
+              >
+                <BsEmojiNeutralFill />
+              </button>
+              <button
+                onClick={() => setRatingFilter(filter => (filter === 2 ? undefined : 2))}
+                class={clsx(
+                  'p-3 text-xl border flex justify-center bg-green-500 bg-opacity-50 rounded m-1',
+                  ratingFilter() === 2 ? 'border-white' : 'border-transparent'
+                )}
+              >
+                <BsEmojiSmileFill />
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="flex flex-col gap-4">
           <For each={Object.entries(feedbackSubmissions())}>
             {entry => {
               const session = createMemo(() => getSession(entry[0]));
               const speaker = createMemo(() => getSpeaker(session()?.speakers[0]));
 
-              return (
-                <div class="border-0 border-b p-2 -m-2">
-                  <p class="text-lg">
-                    {session()?.title} ({speaker()?.fullName})
-                  </p>
-                  <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
-                    <For each={entry[1]}>
-                      {submission => {
-                        const approvingSubmission = useSubmission(
-                          approveAttendeeFeedbackFn,
-                          ([input]) =>
-                            submission.userId === input.userId &&
-                            submission.sessionId === input.sessionId
-                        );
-                        const unapprovingSubmission = useSubmission(
-                          unapproveAttendeeFeedbackFn,
-                          ([input]) =>
-                            submission.userId === input.userId &&
-                            submission.sessionId === input.sessionId
-                        );
+              const filteredSubmissions = () => {
+                if (ratingFilter() === undefined) return entry[1];
+                return entry[1].filter(x => x.rating === ratingFilter());
+              };
 
-                        return (
-                          <li class="flex flex-col gap-2 p-2 bg-white bg-opacity-10 text-center">
-                            <Switch>
-                              <Match when={submission.rating === 0}>
-                                <span class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2">
-                                  <BsEmojiFrownFill />
-                                </span>
-                              </Match>
-                              <Match when={submission.rating === 1}>
-                                <span class="py-4 text-2xl flex justify-center bg-yellow-500 bg-opacity-50 rounded m-2">
-                                  <BsEmojiNeutralFill />
-                                </span>
-                              </Match>
-                              <Match when={submission.rating === 2}>
-                                <span class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2">
-                                  <BsEmojiSmileFill />
-                                </span>
-                              </Match>
-                            </Switch>
-                            <Show
-                              when={submission.review}
-                              fallback={<em class="opacity-70">No review</em>}
-                            >
-                              <p>{submission.review}</p>
-                            </Show>
-                            <div class="grow" />
-                            <Show
-                              when={submission.approved}
-                              fallback={
-                                <Button
-                                  class="w-full"
-                                  variant="success"
-                                  onClick={() => emitApprove(submission)}
-                                  disabled={
-                                    approvingSubmission.pending || approvingAllSubmission.pending
-                                  }
-                                >
-                                  Approve
-                                </Button>
-                              }
-                            >
-                              <Button
-                                class="w-full"
-                                variant="destructive"
-                                onClick={() => emitUnapprove(submission)}
-                                disabled={
-                                  unapprovingSubmission.pending || approvingAllSubmission.pending
+              return (
+                <Show when={filteredSubmissions().length}>
+                  <div class="border-0 border-b p-2 -m-2">
+                    <p class="text-lg">
+                      {session()?.title} ({speaker()?.fullName})
+                    </p>
+                    <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                      <For each={filteredSubmissions()}>
+                        {submission => {
+                          const approvingSubmission = useSubmission(
+                            approveAttendeeFeedbackFn,
+                            ([input]) =>
+                              submission.userId === input.userId &&
+                              submission.sessionId === input.sessionId
+                          );
+                          const unapprovingSubmission = useSubmission(
+                            unapproveAttendeeFeedbackFn,
+                            ([input]) =>
+                              submission.userId === input.userId &&
+                              submission.sessionId === input.sessionId
+                          );
+
+                          return (
+                            <li class="flex flex-col gap-2 p-2 bg-white bg-opacity-10 text-center">
+                              <Switch>
+                                <Match when={submission.rating === 0}>
+                                  <span class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2">
+                                    <BsEmojiFrownFill />
+                                  </span>
+                                </Match>
+                                <Match when={submission.rating === 1}>
+                                  <span class="py-4 text-2xl flex justify-center bg-yellow-500 bg-opacity-50 rounded m-2">
+                                    <BsEmojiNeutralFill />
+                                  </span>
+                                </Match>
+                                <Match when={submission.rating === 2}>
+                                  <span class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2">
+                                    <BsEmojiSmileFill />
+                                  </span>
+                                </Match>
+                              </Switch>
+                              <Show
+                                when={submission.review}
+                                fallback={<em class="opacity-70">No review</em>}
+                              >
+                                <p>{submission.review}</p>
+                              </Show>
+                              <div class="grow" />
+                              <Show
+                                when={submission.approved}
+                                fallback={
+                                  <Button
+                                    class="w-full"
+                                    variant="success"
+                                    onClick={() => emitApprove(submission)}
+                                    disabled={
+                                      approvingSubmission.pending || approvingAllSubmission.pending
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
                                 }
                               >
-                                Unapprove
-                              </Button>
-                            </Show>
-                          </li>
-                        );
-                      }}
-                    </For>
-                  </ul>
-                </div>
+                                <Button
+                                  class="w-full"
+                                  variant="destructive"
+                                  onClick={() => emitUnapprove(submission)}
+                                  disabled={
+                                    unapprovingSubmission.pending || approvingAllSubmission.pending
+                                  }
+                                >
+                                  Unapprove
+                                </Button>
+                              </Show>
+                            </li>
+                          );
+                        }}
+                      </For>
+                    </ul>
+                  </div>
+                </Show>
               );
             }}
           </For>
