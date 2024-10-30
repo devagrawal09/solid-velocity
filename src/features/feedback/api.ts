@@ -2,12 +2,14 @@ import { action, cache } from '@solidjs/router';
 import { assertRequestAdmin, assertRequestAuth } from '~/auth';
 import {
   Rating,
+  approveAllAttendeeFeedback,
   approveAttendeeFeedback,
   getAllSessionFeedback,
   getSession,
   getSessionFeedback,
   rateSession,
-  reviewSession
+  reviewSession,
+  unapproveAttendeeFeedback
 } from './store';
 import { db } from '~/db/drizzle';
 import { getRequestSpeakerFn } from '../speakers/api';
@@ -62,5 +64,21 @@ export const approveAttendeeFeedbackFn = action(
 
     const { userId: by } = assertRequestAdmin();
     await db.transaction(tx => approveAttendeeFeedback({ userId, sessionId, by }, tx));
+  }
+);
+
+export const approveAllAttendeeFeedbackFn = action(async () => {
+  'use server';
+
+  const { userId: by } = assertRequestAdmin();
+  await db.transaction(tx => approveAllAttendeeFeedback(by, tx));
+});
+
+export const unapproveAttendeeFeedbackFn = action(
+  async ({ userId, sessionId }: { userId: string; sessionId: string }) => {
+    'use server';
+
+    const { userId: by } = assertRequestAdmin();
+    await db.transaction(tx => unapproveAttendeeFeedback({ userId, sessionId, by }, tx));
   }
 );

@@ -250,7 +250,6 @@ export async function getFeedbackForSession(
   },
   tx: PgTransaction<any, any, any>
 ) {
-  const start = performance.now();
   const events = await getSpeakerEvents(tx);
 
   const feedback = events.reduce(
@@ -276,10 +275,7 @@ export async function getFeedbackForSession(
     }[]
   );
 
-  const filtered = feedback.filter(f => f.approved);
-  const end = performance.now();
-  console.log(`getFeedbackForSession took ${end - start}ms`);
-  return filtered;
+  return feedback.filter(f => f.approved);
 }
 
 export async function approveFeedback(

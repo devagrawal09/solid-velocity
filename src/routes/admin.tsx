@@ -10,16 +10,19 @@ import {
 } from '@solidjs/router';
 import clsx from 'clsx';
 import { format } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
 import { BsEmojiFrownFill, BsEmojiNeutralFill, BsEmojiSmileFill } from 'solid-icons/bs';
 import { FaSolidChevronDown, FaSolidChevronRight } from 'solid-icons/fa';
 import { createMemo, createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
 import { assertRequestAdmin } from '~/auth';
 import { Button } from '~/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';
-import { useAdmin } from '~/features/admin';
 import { getAllS2sEvents, uploadSpeakerSheet } from '~/features/admin/speakers';
-import { approveAttendeeFeedbackFn, getAllSessionFeedbackFn } from '~/features/feedback/api';
+import {
+  approveAllAttendeeFeedbackFn,
+  approveAttendeeFeedbackFn,
+  getAllSessionFeedbackFn,
+  unapproveAttendeeFeedbackFn
+} from '~/features/feedback/api';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Session, Speaker } from '~/features/sessionize/store';
 import { approveFeedbackFn } from '~/features/speakers/api';
@@ -602,12 +605,13 @@ function SpeakerFeedbackApproval() {
 }
 
 type AttendeeFeedbackSubmission = {
-  sessionId: string;
   userId: string;
+  sessionId: string;
   rating?: number;
   review?: string;
   approved: boolean;
 };
+
 function AttendeeFeedbackApproval() {
   const [open, setOpen] = createSignal(false);
 
@@ -615,51 +619,83 @@ function AttendeeFeedbackApproval() {
 
   const data = createAsync(() => getSessionizeData());
   const getSession = (sessionId: string) => data()?.sessions.find(s => s.id === sessionId);
-  const getSpeaker = (speakerId: string) => data()?.speakers.find(s => s.id === speakerId);
+  const getSpeaker = (speakerId?: string) =>
+    speakerId ? data()?.speakers.find(s => s.id === speakerId) : undefined;
 
   const feedbackSubmissions = () =>
-    attendeeFeedbackEvents()?.reduce((acc, event) => {
-      const existing = acc.find(x => x.sessionId === event.sessionId);
-      if (existing) {
-        if (event.feedback.type === 'rated') {
-          existing.rating = event.feedback.rating;
+    attendeeFeedbackEvents()?.reduce(
+      (acc, event) => {
+        const session = acc[event.sessionId];
+
+        if (session) {
+          const existing = session.find(s => s.userId === event.userId);
+
+          if (existing) {
+            if (event.feedback.type === 'rated') {
+              existing.rating = event.feedback.rating;
+            }
+
+            if (event.feedback.type === 'reviewed') {
+              existing.review = event.feedback.review;
+            }
+
+            if (event.feedback.type === 'approved') {
+              existing.approved = true;
+            }
+
+            if (event.feedback.type === 'unapproved') {
+              existing.approved = false;
+            }
+          } else {
+            session.push({
+              ...event,
+              ...event.feedback,
+              approved: false
+            } satisfies AttendeeFeedbackSubmission);
+          }
+
+          return acc;
         }
 
-        if (event.feedback.type === 'reviewed') {
-          existing.review = event.feedback.review;
-        }
+        return {
+          ...acc,
+          [event.sessionId]: [
+            {
+              ...event,
+              ...event.feedback,
+              approved: false
+            } satisfies AttendeeFeedbackSubmission
+          ]
+        };
+      },
+      {} as Record<string, AttendeeFeedbackSubmission[]>
+    ) || {};
 
-        if (event.feedback.type === 'approved') {
-          // @ts-expect-error
-          const approving = acc.find(x => x.userId === event.feedback.userId);
-          if (approving) approving.approved = true;
-        }
+  const [onApprove, emitApprove] = createEvent<AttendeeFeedbackSubmission>();
+  const [onUnapprove, emitUnapprove] = createEvent<AttendeeFeedbackSubmission>();
+  const [onApproveAll, emitApproveAll] = createEvent();
 
-        return acc;
-      }
-      return [
-        ...acc,
-        { sessionId: event.sessionId, userId: event.userId, ...event.feedback, approved: false }
-      ];
-    }, [] as AttendeeFeedbackSubmission[]);
+  const onApproved = onApprove(useAction(approveAttendeeFeedbackFn));
+  const onUnapproved = onUnapprove(useAction(unapproveAttendeeFeedbackFn));
+  const onApprovedAll = onApproveAll(useAction(approveAllAttendeeFeedbackFn));
 
-  const [onApprove, emitApprove] = createEvent<{
-    userId: string;
-    sessionId: string;
-  }>();
-  const approveFeedback = useAction(approveAttendeeFeedbackFn);
-  const approveFeedbackSubmission = useSubmissions(approveAttendeeFeedbackFn);
+  const approvingAllSubmission = useSubmission(approveAllAttendeeFeedbackFn);
 
-  const isApproving = (userId: string, sessionId: string) =>
-    approveFeedbackSubmission.find(
-      s => s.input[0].userId === userId && s.input[0].sessionId === sessionId
-    )?.pending;
-
-  const onApproved = onApprove(approveFeedback);
   createToastListener(
     onApproved(() => ({
       title: 'Feedback Approved',
-      description: `Feedback approved`
+      description: `Feedback approved`,
+      variant: 'success'
+    })),
+    onUnapproved(() => ({
+      title: 'Feedback Unapproved',
+      description: `Feedback unapproved`,
+      variant: 'destructive'
+    })),
+    onApprovedAll(() => ({
+      title: 'All Feedback Approved',
+      description: `All feedback approved`,
+      variant: 'success'
     }))
   );
 
@@ -672,46 +708,98 @@ function AttendeeFeedbackApproval() {
       <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
         <Button
           variant="success"
-          disabled={approveFeedbackSubmission.pending}
-          onClick={() => {
-            feedbackSubmissions()?.forEach(submission => {
-              emitApprove({
-                sessionId: submission.sessionId,
-                userId: submission.userId
-              });
-            });
-          }}
+          disabled={approvingAllSubmission.pending}
+          onClick={emitApproveAll}
         >
-          Approve All Speaker Feedback
+          Approve All Attendee Feedback
         </Button>
-        <div class="flex mt-8 h-[800px] overflow-scroll">
-          <For each={feedbackSubmissions()}>
-            {submission => (
-              <li class={clsx('border-b border-gray-500 p-2 bg-white bg-opacity-10 text-center')}>
-                <div class="text-center">
-                  <Switch>
-                    <Match when={submission.rating === 0}>
-                      <span class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2">
-                        <BsEmojiFrownFill />
-                      </span>
-                    </Match>
-                    <Match when={submission.rating === 1}>
-                      <span class="py-4 text-2xl flex justify-center bg-yellow-500 bg-opacity-50 rounded m-2">
-                        <BsEmojiNeutralFill />
-                      </span>
-                    </Match>
-                    <Match when={submission.rating === 2}>
-                      <span class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2">
-                        <BsEmojiSmileFill />
-                      </span>
-                    </Match>
-                  </Switch>
+        <div class="flex flex-col gap-4">
+          <For each={Object.entries(feedbackSubmissions())}>
+            {entry => {
+              const session = createMemo(() => getSession(entry[0]));
+              const speaker = createMemo(() => getSpeaker(session()?.speakers[0]));
+
+              return (
+                <div class="border-0 border-b p-2 -m-2">
+                  <p class="text-lg">
+                    {session()?.title} ({speaker()?.fullName})
+                  </p>
+                  <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                    <For each={entry[1]}>
+                      {submission => {
+                        const approvingSubmission = useSubmission(
+                          approveAttendeeFeedbackFn,
+                          ([input]) =>
+                            submission.userId === input.userId &&
+                            submission.sessionId === input.sessionId
+                        );
+                        const unapprovingSubmission = useSubmission(
+                          unapproveAttendeeFeedbackFn,
+                          ([input]) =>
+                            submission.userId === input.userId &&
+                            submission.sessionId === input.sessionId
+                        );
+
+                        return (
+                          <li class="flex flex-col gap-2 p-2 bg-white bg-opacity-10 text-center">
+                            <Switch>
+                              <Match when={submission.rating === 0}>
+                                <span class="py-4 text-2xl flex justify-center bg-red-500 bg-opacity-50 rounded m-2">
+                                  <BsEmojiFrownFill />
+                                </span>
+                              </Match>
+                              <Match when={submission.rating === 1}>
+                                <span class="py-4 text-2xl flex justify-center bg-yellow-500 bg-opacity-50 rounded m-2">
+                                  <BsEmojiNeutralFill />
+                                </span>
+                              </Match>
+                              <Match when={submission.rating === 2}>
+                                <span class="py-4 text-2xl flex justify-center bg-green-500 bg-opacity-50 rounded m-2">
+                                  <BsEmojiSmileFill />
+                                </span>
+                              </Match>
+                            </Switch>
+                            <Show
+                              when={submission.review}
+                              fallback={<em class="opacity-70">No review</em>}
+                            >
+                              <p>{submission.review}</p>
+                            </Show>
+                            <div class="grow" />
+                            <Show
+                              when={submission.approved}
+                              fallback={
+                                <Button
+                                  class="w-full"
+                                  variant="success"
+                                  onClick={() => emitApprove(submission)}
+                                  disabled={
+                                    approvingSubmission.pending || approvingAllSubmission.pending
+                                  }
+                                >
+                                  Approve
+                                </Button>
+                              }
+                            >
+                              <Button
+                                class="w-full"
+                                variant="destructive"
+                                onClick={() => emitUnapprove(submission)}
+                                disabled={
+                                  unapprovingSubmission.pending || approvingAllSubmission.pending
+                                }
+                              >
+                                Unapprove
+                              </Button>
+                            </Show>
+                          </li>
+                        );
+                      }}
+                    </For>
+                  </ul>
                 </div>
-                <Show when={submission.review} fallback={<em class="opacity-70">No review</em>}>
-                  <p>{submission.review}</p>
-                </Show>
-              </li>
-            )}
+              );
+            }}
           </For>
         </div>
       </CollapsibleContent>

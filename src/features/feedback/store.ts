@@ -12,6 +12,7 @@ export const attendeeFeedbackEvents = pgTable(`attendee-feedback-events`, {
       | { type: 'rated'; rating: Rating }
       | { type: 'reviewed'; review: string }
       | { type: 'approved'; by: string }
+      | { type: 'unapproved'; by: string }
     >()
     .notNull()
 });
@@ -110,6 +111,10 @@ export async function getSessionFeedback(sessionId: string, tx: PgTransaction<an
             existing.approved = true;
           }
 
+          if (event.feedback.type === 'unapproved') {
+            existing.approved = false;
+          }
+
           return acc;
         }
         return [...acc, { userId: event.userId, ...event.feedback, approved: false }];
@@ -132,4 +137,49 @@ export async function approveAttendeeFeedback(
   tx: PgTransaction<any, any, any>
 ) {
   return publishFeedbackEvent([{ feedback: { type: 'approved', by }, userId, sessionId }], tx);
+}
+
+export async function approveAllAttendeeFeedback(by: string, tx: PgTransaction<any, any, any>) {
+  const events = await getAllSessionFeedback(tx);
+
+  const unapprovedFeedback = events
+    .reduce(
+      (acc, event) => {
+        const existing = acc.find(
+          x => x.userId === event.userId && x.sessionId === event.sessionId
+        );
+
+        if (existing) {
+          if (event.feedback.type === 'approved') {
+            existing.approved = true;
+          }
+
+          if (event.feedback.type === 'unapproved') {
+            existing.approved = false;
+          }
+
+          return acc;
+        }
+
+        return [...acc, { ...event, approved: false }];
+      },
+      [] as { sessionId: string; userId: string; approved: boolean }[]
+    )
+    .filter(x => !x.approved);
+
+  return publishFeedbackEvent(
+    unapprovedFeedback.map(({ userId, sessionId }) => ({
+      feedback: { type: 'approved', by },
+      userId,
+      sessionId
+    })),
+    tx
+  );
+}
+
+export async function unapproveAttendeeFeedback(
+  { userId, sessionId, by }: { userId: string; sessionId: string; by: string },
+  tx: PgTransaction<any, any, any>
+) {
+  return publishFeedbackEvent([{ feedback: { type: 'unapproved', by }, userId, sessionId }], tx);
 }
