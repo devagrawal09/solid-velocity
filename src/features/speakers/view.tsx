@@ -32,7 +32,7 @@ export function ViewSpeakerFeedback() {
     <AdminMode>
       <Show when={isSpeakerSignedUp()}>
         <div class={clsx('rounded-sm text-center text-sm my-2 py-2 bg-white bg-opacity-10')}>
-          <h2 class="text-xl font-semibold mb-2">View Speaker Feedback</h2>
+          <h2 class="text-xl font-semibold mb-2">Speaker Feedback</h2>
           <Show
             when={hydratedSubmissions().length}
             fallback={
