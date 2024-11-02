@@ -1,4 +1,4 @@
-import { A, createAsync, RouteDefinition, useParams } from '@solidjs/router';
+import { createAsync, RouteDefinition, useParams } from '@solidjs/router';
 import { SignInButton, useClerk } from 'clerk-solidjs';
 import clsx from 'clsx';
 import { format } from 'date-fns';
@@ -12,7 +12,7 @@ import { getSessionizeData } from '~/features/sessionize/api';
 import { Category, Session } from '~/features/sessionize/store';
 import { createShowFeedback, SpeakerFeedbackForm } from '~/features/speakers/form';
 import { SpeakerImpersonator } from '~/features/speakers/impersonator';
-import { ViewSpeakerFeedback } from '~/features/speakers/view';
+import { ViewSpeakerFeedback, ViewSpeakerStats } from '~/features/speakers/view';
 
 export const route = {
   preload() {
@@ -71,6 +71,7 @@ export default function SessionPage() {
                     when={!isCurrentSpeaker()}
                     fallback={
                       <>
+                        <ViewSpeakerStats />
                         <ViewSpeakerFeedback />
                         <ViewAttendeeFeedback />
                       </>
@@ -98,7 +99,7 @@ export default function SessionPage() {
           </Suspense>
           <div class="flex items-center gap-2">
             <FaSolidMapPin />
-            <span class="">{room()?.name}</span>
+            <span>{room()?.name}</span>
           </div>
 
           <div class="flex items-center gap-2">

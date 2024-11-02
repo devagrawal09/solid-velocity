@@ -1,16 +1,14 @@
 import { createAsync } from '@solidjs/router';
 import clsx from 'clsx';
-import { getAllFeedbackFn, getRequestSpeakerFn, getSignedUpSpeakersFn } from './api';
-import { createSignal, For, Show } from 'solid-js';
+import {
+  getAllFeedbackFn,
+  getCurrentSpeakerStatsFn,
+  getRequestSpeakerFn,
+  getSignedUpSpeakersFn
+} from './api';
+import { For, Show } from 'solid-js';
 import { getSessionizeData } from '../sessionize/api';
 import { AdminMode } from '../admin';
-import { SpeakerFeedbackFormData } from './store';
-import { Speaker } from '../sessionize/store';
-
-type Submission = {
-  data: SpeakerFeedbackFormData;
-  speaker: Speaker;
-};
 
 export function ViewSpeakerFeedback() {
   const speakerId = createAsync(() => getRequestSpeakerFn());
@@ -26,8 +24,6 @@ export function ViewSpeakerFeedback() {
 
   const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId() || '');
 
-  const [selectedSubmission, setSelectionSubmission] = createSignal<Submission>();
-
   return (
     <AdminMode>
       <Show when={isSpeakerSignedUp()}>
@@ -42,44 +38,28 @@ export function ViewSpeakerFeedback() {
               </>
             }
           >
-            <div class="text-left px-4 sm:flex">
-              <ul class="sm:w-1/3">
+            <div class="text-left px-4">
+              <ul class="grid grid-cols-2">
                 <For each={hydratedSubmissions()}>
                   {submission => (
-                    <li
-                      class={clsx(
-                        'cursor-pointer hover:bg-white hover:bg-opacity-20 border-b border-gray-500 p-2',
-                        submission === selectedSubmission() && 'bg-momentum'
-                      )}
-                      role="button"
-                      onClick={() => setSelectionSubmission(submission)}
-                    >
-                      {submission.speaker.fullName}
-                    </li>
-                  )}
-                </For>
-              </ul>
-              <div class="sm:w-2/3 p-4">
-                <Show when={selectedSubmission()} fallback={<>Select submission to view details</>}>
-                  {selectedSubmission => (
-                    <>
-                      <p class="mb-2">
-                        Feedback by <strong>{selectedSubmission().speaker.fullName}</strong>
+                    <li class="border-x border-gray-500 p-2">
+                      <p class="mb-2 text-lg">
+                        <strong>{submission.speaker.fullName}</strong>
                       </p>
                       <p class="mb-2">
                         <strong>How would you rate this session?</strong>
                         <br />
-                        {selectedSubmission().data.rating}
+                        {submission.data.rating}
                       </p>
                       <p class="mb-2">
                         <strong>Why did you choose to attend this session?</strong>
                         <br />
-                        {selectedSubmission().data.why}
+                        {submission.data.why}
                       </p>
                       <p class="mb-2">
                         <strong>What was your favorite thing about this session?</strong>
                         <br />
-                        {selectedSubmission().data.fav}
+                        {submission.data.fav}
                       </p>
                       <p class="mb-2">
                         <strong>
@@ -87,21 +67,33 @@ export function ViewSpeakerFeedback() {
                           this session?
                         </strong>
                         <br />
-                        {selectedSubmission().data.improve}
+                        {submission.data.improve}
                       </p>
                       <p class="mb-2">
                         <strong>Any other comments for the speaker?</strong>
                         <br />
-                        {selectedSubmission().data.comments}
+                        {submission.data.comments}
                       </p>
-                    </>
+                    </li>
                   )}
-                </Show>
-              </div>
+                </For>
+              </ul>
             </div>
           </Show>
         </div>
       </Show>
     </AdminMode>
+  );
+}
+
+export function ViewSpeakerStats() {
+  const stats = createAsync(() => getCurrentSpeakerStatsFn());
+
+  return (
+    <Show when={stats()}>
+      <div class="rounded-sm text-center my-2 py-2 bg-white bg-opacity-10">
+        Attendance: <strong>{stats()?.attendeeCount}</strong>
+      </div>
+    </Show>
   );
 }

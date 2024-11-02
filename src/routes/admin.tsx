@@ -34,7 +34,11 @@ import {
 } from '~/features/feedback/api';
 import { getSessionizeData } from '~/features/sessionize/api';
 import { Session, Speaker } from '~/features/sessionize/store';
-import { approveFeedbackFn } from '~/features/speakers/api';
+import {
+  approveFeedbackFn,
+  getAllSpeakerStatsFn,
+  updateSpeakerStatsFn
+} from '~/features/speakers/api';
 import { SpeakerFeedbackFormData } from '~/features/speakers/store';
 import { createEvent } from '~/lib/events';
 import { createToastListener } from '~/lib/toast';
@@ -63,6 +67,7 @@ export default function AdminPage() {
         <SpeakerFeedbackApproval />
         {/* <GlobalClock /> */}
         <AttendeeFeedbackApproval />
+        <SpeakerStats />
       </main>
     </main>
   );
@@ -622,7 +627,7 @@ type AttendeeFeedbackSubmission = {
 };
 
 function AttendeeFeedbackApproval() {
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(false);
 
   const attendeeFeedbackEvents = createAsync(() => getAllSessionFeedbackFn());
 
@@ -862,6 +867,78 @@ function AttendeeFeedbackApproval() {
             }}
           </For>
         </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SpeakerStats() {
+  const [open, setOpen] = createSignal(true);
+
+  const allStats = createAsync(() => getAllSpeakerStatsFn());
+  const data = createAsync(() => getSessionizeData());
+
+  const [onStatsUpdate, emitStatsUpdate] = createEvent<{
+    sessionId: string;
+    attendeeCount: string;
+  }>();
+  const onStatsUpdated = onStatsUpdate(useAction(updateSpeakerStatsFn));
+  createToastListener(
+    onStatsUpdated(sessionId => ({
+      title: 'Stats Updated',
+      description: (
+        <>
+          Stats updated for <strong>{data()?.sessions.find(s => s.id === sessionId)?.title}</strong>
+        </>
+      ),
+      variant: 'success'
+    }))
+  );
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen}>
+      <CollapsibleTrigger class="bg-momentum py-2 px-4 w-full my-1 rounded-xl flex gap-3 items-center text-xl">
+        {open() ? <FaSolidChevronDown /> : <FaSolidChevronRight />}
+        Speaker Stats
+      </CollapsibleTrigger>
+      <CollapsibleContent class="border rounded-xl p-9 my-2 border-gray-700">
+        <table>
+          <thead>
+            <tr>
+              <th>Attendee Count</th>
+              <th>Session</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={data()?.sessions || []}>
+              {session => {
+                const sessionStats = () => allStats()?.find(s => s.sessionId === session.id);
+
+                return (
+                  <Show when={session.speakers.length}>
+                    <tr class="border-b border-gray-600">
+                      <td>
+                        <input
+                          type="number"
+                          class="m-2 rounded text-black text-lg text-center w-28"
+                          value={sessionStats()?.attendeeCount || 0}
+                          onBlur={e =>
+                            e.target.value !== sessionStats()?.attendeeCount &&
+                            emitStatsUpdate({
+                              sessionId: session.id,
+                              attendeeCount: e.target.value
+                            })
+                          }
+                        />
+                      </td>
+                      <td>{session.title}</td>
+                    </tr>
+                  </Show>
+                );
+              }}
+            </For>
+          </tbody>
+        </table>
       </CollapsibleContent>
     </Collapsible>
   );

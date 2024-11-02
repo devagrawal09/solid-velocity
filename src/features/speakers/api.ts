@@ -10,13 +10,16 @@ import {
   getSessionAssignees,
   getSignedUpSpeakers,
   getSpeakerAssignments,
+  getSpeakerStats,
   removeSpeaker,
   signUpSpeaker,
   SpeakerFeedbackFormData,
   submitFeedback,
-  unassignSpeakerFromSession
+  unassignSpeakerFromSession,
+  updateSpeakerStats
 } from './store';
 import { getSessionizeData } from '../sessionize/api';
+import { getCachedData } from '../sessionize/store';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -166,5 +169,44 @@ export const submitFeedbackFn = action(
     const result = await db.transaction(tx => submitFeedback({ speakerId, sessionId, data }, tx));
 
     return result;
+  }
+);
+
+export const getCurrentSpeakerStatsFn = cache(async () => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+  const sessionizeData = await getCachedData();
+  const session = sessionizeData.sessions.find(s => s.speakers.includes(speakerId));
+  if (!session) throw new Error('Session not found');
+
+  const result = await db.transaction(tx => getSpeakerStats({ sessionId: session.id }, tx));
+
+  if (result.length === 0) return null;
+
+  return result[0];
+}, 'current-speaker-stats');
+
+export const getAllSpeakerStatsFn = cache(async () => {
+  'use server';
+
+  assertRequestAdmin();
+
+  const result = await db.transaction(tx => getSpeakerStats({}, tx));
+
+  if (result.length === 0) return null;
+
+  return result;
+}, 'all-speaker-stats');
+
+export const updateSpeakerStatsFn = action(
+  async (data: { sessionId: string; attendeeCount: string }) => {
+    'use server';
+
+    assertRequestAdmin();
+
+    await db.transaction(tx => updateSpeakerStats(data, tx));
+
+    return data.sessionId;
   }
 );

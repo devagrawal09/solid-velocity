@@ -1,7 +1,7 @@
 import { json, pgTable, PgTransaction, text, uuid, timestamp } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { getCachedData } from '../sessionize/store';
-import { asc, desc } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 
 export const speakerFeedbackFormSchema = z.object({
   rating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
@@ -28,6 +28,12 @@ export const speakerFeedbackEvents = pgTable(`speaker-feedback-events`, {
 });
 
 export type SpeakerEvent = typeof speakerFeedbackEvents.$inferInsert;
+
+export const speakerStats = pgTable(`speaker-stats`, {
+  id: uuid(`id`).defaultRandom().primaryKey(),
+  sessionId: text(`sessionId`).notNull(),
+  attendeeCount: text(`attendeeCount`).notNull()
+});
 
 async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
   return tx.select().from(speakerFeedbackEvents).orderBy(asc(speakerFeedbackEvents.timestamp));
@@ -321,4 +327,35 @@ async function clearSessionAssignments(sessionId: string, tx: PgTransaction<any,
     feedback: { type: 'session-unassigned' as const, sessionId },
     speakerId
   }));
+}
+
+export async function getSpeakerStats(
+  { sessionId }: { sessionId?: string },
+  tx: PgTransaction<any, any, any>
+) {
+  return tx
+    .select()
+    .from(speakerStats)
+    .where(sessionId ? eq(speakerStats.sessionId, sessionId) : undefined);
+}
+
+export async function updateSpeakerStats(
+  { sessionId, attendeeCount }: { sessionId: string; attendeeCount: string },
+  tx: PgTransaction<any, any, any>
+) {
+  const existing = await tx
+    .select()
+    .from(speakerStats)
+    .where(eq(speakerStats.sessionId, sessionId));
+
+  if (existing.length > 0) {
+    if (existing[0].attendeeCount === attendeeCount) return;
+
+    return tx
+      .update(speakerStats)
+      .set({ attendeeCount })
+      .where(eq(speakerStats.sessionId, sessionId));
+  }
+
+  return tx.insert(speakerStats).values({ sessionId, attendeeCount });
 }
