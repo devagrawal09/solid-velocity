@@ -14,12 +14,14 @@ import {
   removeSpeaker,
   signUpSpeaker,
   SpeakerFeedbackFormData,
+  speakerNotifs,
   submitFeedback,
   unassignSpeakerFromSession,
   updateSpeakerStats
 } from './store';
 import { getSessionizeData } from '../sessionize/api';
 import { getCachedData } from '../sessionize/store';
+import { eq } from 'drizzle-orm';
 
 export const getRequestSpeakerFn = cache(async () => {
   'use server';
@@ -210,3 +212,31 @@ export const updateSpeakerStatsFn = action(
     return data.sessionId;
   }
 );
+
+export const getSpeakerNotifs = cache(async () => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  const notifs = await db.transaction(tx =>
+    tx.select().from(speakerNotifs).where(eq(speakerNotifs.speakerId, speakerId))
+  );
+
+  return notifs;
+}, 's2s/notifs');
+
+export const enableSpeakerNotifs = action(async (notifFor: string) => {
+  'use server';
+
+  const speakerId = await getRequestSpeakerFn();
+
+  await db.transaction(tx =>
+    tx
+      .insert(speakerNotifs)
+      .values({
+        speakerId,
+        for: notifFor
+      })
+      .onConflictDoNothing()
+  );
+});

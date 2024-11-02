@@ -35,6 +35,13 @@ export const speakerStats = pgTable(`speaker-stats`, {
   attendeeCount: text(`attendeeCount`).notNull()
 });
 
+export const speakerNotifs = pgTable(`speaker-notifs`, {
+  id: uuid(`id`).defaultRandom().primaryKey(),
+  speakerId: text(`speakerId`).notNull(),
+  for: text(`for`).notNull(),
+  timestamp: timestamp(`timestamp`).defaultNow().notNull()
+});
+
 async function getSpeakerEvents(tx: PgTransaction<any, any, any>) {
   return tx.select().from(speakerFeedbackEvents).orderBy(asc(speakerFeedbackEvents.timestamp));
 }

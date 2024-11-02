@@ -16,7 +16,6 @@ export function serverCache<A = void, D = StorageValue>(
   id: string,
   ttl = 86400000
 ) {
-  console.trace({ id });
   return async (a: A) => {
     console.log(`fetching ${id}`);
     const [cachedData] = await db.select().from(cacheTable).where(eq(cacheTable.id, id));

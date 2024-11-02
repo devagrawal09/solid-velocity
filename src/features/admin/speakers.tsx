@@ -59,10 +59,7 @@ export const uploadSpeakerSheet = action(async (csvString: string) => {
         });
       })
     )
-  ).map(user => {
-    console.log(user);
-    return user.id;
-  });
+  ).map(user => user.id);
 
   return { users, validEntries, invalidEntries };
 });

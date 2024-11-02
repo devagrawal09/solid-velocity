@@ -13,8 +13,10 @@ import { createToastListener } from '~/lib/toast';
 import { useAdmin } from '../admin';
 import { getSessionizeData } from '../sessionize/api';
 import {
+  enableSpeakerNotifs,
   getRequestSpeakerFn,
   getSignedUpSpeakersFn,
+  getSpeakerNotifs,
   removeSpeakerFn,
   signUpSpeakerFn
 } from './api';
@@ -28,17 +30,25 @@ type TimeSlot = [string, string, Session[]];
 
 export function SpeakerDashboard() {
   const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
+  const data = createAsync(() => getSessionizeData());
+
+  const mySession = () => data()?.sessions.find(session => session.speakers.includes(speakerId()));
+
+  return (
+    <>
+      <Show when={mySession()}>{session => <MySessionComponent session={session()} />}</Show>
+      {/* <S2sDashboard /> */}
+      <SpeakerThanks />
+    </>
+  );
+}
+
+function S2sDashboard() {
+  const speakerId = createAsync(() => getRequestSpeakerFn(), { initialValue: '' });
   const signedUpSpeakers = createAsync(() => getSignedUpSpeakersFn());
   const data = createAsync(() => getSessionizeData());
 
   const isSpeakerSignedUp = () => signedUpSpeakers()?.includes(speakerId());
-
-  // const untimedSessions = createMemo(() =>
-  //   data()
-  //     ?.sessions.filter(s => !s.startsAt)
-  //     .filter(session => !session.speakers.includes(speakerId()))
-  //     .filter(s => signedUpSpeakers()?.find(speaker => s.speakers.includes(speaker)))
-  // );
 
   const timeSlots = () =>
     data()?.sessions.reduce<TimeSlot[]>((acc, session) => {
@@ -56,58 +66,92 @@ export function SpeakerDashboard() {
       return acc;
     }, []);
 
-  const mySession = () => data()?.sessions.find(session => session.speakers.includes(speakerId()));
   const { showAdminUi } = useAdmin();
 
   return (
-    <>
-      <Show when={mySession()}>{session => <MySessionComponent session={session()} />}</Show>
-      <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
-        <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
-          <AssignmentProvider>
-            <AssignedSessions />
-            <div class="flex items-center">
-              <p class="my-4 grow">
-                <span class="text-xl">Available Sessions</span>
-                <br />
-                Please assign two sessions to yourself
-              </p>
-              <Tooltip>
-                <TooltipTrigger>
-                  <BiRegularHelpCircle size={25} />
-                </TooltipTrigger>
-                <TooltipContent class="w-80">
-                  <S2sInfo />
-                </TooltipContent>
-              </Tooltip>
-              <Show when={showAdminUi()}>
-                <OptOut />
-              </Show>
-            </div>
-            <Show
-              when={timeSlots()?.length}
-              // fallback={
-              //   <>
-              //     <Callout variant="warning">
-              //       <CalloutTitle>No Schedule</CalloutTitle>
-              //       <CalloutContent>
-              //         While you can assign yourself sessions for feedback, the conference schedule
-              //         is not yet finalized, so you might assign sessions that conflict with each
-              //         other.
-              //       </CalloutContent>
-              //     </Callout>
-              //     <For each={untimedSessions()}>
-              //       {session => <SessionComponent session={session} />}
-              //     </For>
-              //   </>
-              // }
-            >
-              <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
+    <Show when={isSpeakerSignedUp()} fallback={<OptIn />}>
+      <Show when={(signedUpSpeakers()?.length || 1) > 1} fallback={<NoSpeakers />}>
+        <AssignmentProvider>
+          <AssignedSessions />
+          <div class="flex items-center">
+            <p class="my-4 grow">
+              <span class="text-xl">Available Sessions</span>
+              <br />
+              Please assign two sessions to yourself
+            </p>
+            <Tooltip>
+              <TooltipTrigger>
+                <BiRegularHelpCircle size={25} />
+              </TooltipTrigger>
+              <TooltipContent class="w-80">
+                <S2sInfo />
+              </TooltipContent>
+            </Tooltip>
+            <Show when={showAdminUi()}>
+              <OptOut />
             </Show>
-          </AssignmentProvider>
-        </Show>
+          </div>
+          <Show
+            when={timeSlots()?.length}
+            // fallback={
+            //   <>
+            //     <Callout variant="warning">
+            //       <CalloutTitle>No Schedule</CalloutTitle>
+            //       <CalloutContent>
+            //         While you can assign yourself sessions for feedback, the conference schedule
+            //         is not yet finalized, so you might assign sessions that conflict with each
+            //         other.
+            //       </CalloutContent>
+            //     </Callout>
+            //     <For each={untimedSessions()}>
+            //       {session => <SessionComponent session={session} />}
+            //     </For>
+            //   </>
+            // }
+          >
+            <For each={timeSlots()}>{slot => <TimeSlotComponent slot={slot} />}</For>
+          </Show>
+        </AssignmentProvider>
       </Show>
-    </>
+    </Show>
+  );
+}
+
+function SpeakerThanks() {
+  const notifs = createAsync(() => getSpeakerNotifs());
+  const [onEnableNotif, emitEnableNotif] = createEvent<string>();
+  const onEnabledNotif = onEnableNotif(useAction(enableSpeakerNotifs));
+  createToastListener(
+    onEnabledNotif(() => ({
+      title: 'CFP Notification enabled!',
+      description: 'You will now be notified when the CFP for Momentum 2025 goes live.'
+    }))
+  );
+
+  return (
+    <p>
+      Thank you for speaking at Momentum Developer Conference 2024!
+      <br />
+      You can view the attendance count and feedback for your session by going to the session
+      details page.
+      <br />
+      <br />
+      We would love to see you back at Momentum next year! You can sign up to be notified when the
+      CFP for Momentum 2025 goes live.
+      <br />
+      <Show
+        when={notifs()?.find(n => n.for === 'cfp')}
+        fallback={
+          <Button onClick={() => emitEnableNotif(`cfp`)} variant="secondary">
+            Notify me for 2025 CFP
+          </Button>
+        }
+      >
+        <Button disabled variant="secondary">
+          Already signed up for notification
+        </Button>
+      </Show>
+    </p>
   );
 }
 

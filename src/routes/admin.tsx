@@ -873,7 +873,7 @@ function AttendeeFeedbackApproval() {
 }
 
 function SpeakerStats() {
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(false);
 
   const allStats = createAsync(() => getAllSpeakerStatsFn());
   const data = createAsync(() => getSessionizeData());

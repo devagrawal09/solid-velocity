@@ -71,6 +71,13 @@
       "when": 1730506122730,
       "tag": "0009_medical_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1730510098945,
+      "tag": "0010_luxuriant_shotgun",
+      "breakpoints": true
     }
   ]
 }
